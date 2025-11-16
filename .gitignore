@@ -1,0 +1,44 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Database
+*.db
+*.sqlite3
+
+# Storage
+storage/files/*
+!storage/files/.gitkeep
+
+# Blockchain
+blockchain/chain.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution
+dist/
+build/
+*.egg-info/
