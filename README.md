@@ -4,7 +4,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-A production-ready secure cloud storage backend that combines **Dynamic AES-256 encryption**, a **custom blockchain ledger**, and **ECC (Elliptic Curve Cryptography)** for secure key sharing.
+A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a **custom blockchain ledger**, and **ECC (Elliptic Curve Cryptography)** for secure key sharing.
 
 ## 🚀 Key Features
 
