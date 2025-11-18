@@ -6,15 +6,15 @@
 
 A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a **custom blockchain ledger**, and **ECC (Elliptic Curve Cryptography)** for secure key sharing.
 
-## 🚀 Key Features
+##  Key Features
 
-- **🔐 Dynamic AES-256 Encryption** - Each file encrypted with a unique, one-time AES key
-- **⛓️ Blockchain Mini-Ledger** - Tamper-proof storage of encryption keys with full traceability
-- **🔑 ECC Key Exchange** - SECP256R1 curve for lightweight, high-security public-private key cryptography
-- **🌐 RESTful APIs** - FastAPI-based endpoints for seamless integration
-- **💾 SQLite Database** - Local metadata storage for users and files
-- **🐳 Docker Ready** - Complete containerization for easy deployment
-- **✅ Immutable Records** - Blockchain validation ensures data integrity
+-  Dynamic AES-256 Encryption - Each file encrypted with a unique, one-time AES key
+-  Blockchain Mini-Ledger - Tamper-proof storage of encryption keys with full traceability
+-  ECC Key Exchange - SECP256R1 curve for lightweight, high-security public-private key cryptography
+-  RESTful APIs - FastAPI-based endpoints for seamless integration
+-  SQLite Database - Local metadata storage for users and files
+-  Docker Ready - Complete containerization for easy deployment
+-  Immutable Records - Blockchain validation ensures data integrity
 
 ## 📋 Table of Contents
 
@@ -29,7 +29,7 @@ A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a *
 - [Security Features](#security-features)
 - [License](#license)
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Flow
 
@@ -73,7 +73,7 @@ A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a *
 - **SQLite** - Database
 - **Docker** - Containerization
 
-## 📥 Installation
+##  Installation
 
 ### Prerequisites
 
@@ -129,7 +129,7 @@ docker run -d -p 8000:8000 -v $(pwd)/storage:/app/storage -v $(pwd)/blockchain:/
 docker-compose up -d
 ```
 
-## 🎯 Quick Start
+## Quick Start
 
 Once the server is running, access the interactive API documentation:
 
@@ -312,7 +312,7 @@ GET /files/{user_id}
 }
 ```
 
-## 💡 Usage Examples
+## Usage Examples
 
 ### Example 1: Complete File Upload & Download Flow
 
@@ -399,7 +399,7 @@ print(f"Blockchain valid: {blockchain['is_valid']}")
 print(f"Total blocks: {blockchain['length']}")
 ```
 
-## ⛓️ Blockchain Demonstration
+## Blockchain Demonstration
 
 ### Understanding the Blockchain
 
@@ -477,7 +477,7 @@ curl http://localhost:8000/chain
 curl http://localhost:8000/chain
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Manual Testing
 
@@ -584,7 +584,7 @@ if __name__ == "__main__":
     test_complete_workflow()
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 SecureCloudX/
@@ -608,7 +608,7 @@ SecureCloudX/
 └── LICENSE                     # MIT License
 ```
 
-## 🔒 Security Features
+## Security Features
 
 ### 1. **Dynamic AES-256 Encryption**
 
@@ -634,7 +634,7 @@ SecureCloudX/
 - AES keys never exposed in plaintext (except in-memory during operations)
 - ECC-encrypted keys for sharing
 
-## 🎯 Use Cases
+##  Use Cases
 
 1. **Secure Document Management** - Store sensitive documents with encryption
 2. **Collaborative File Sharing** - Share files securely between users
@@ -642,14 +642,14 @@ SecureCloudX/
 4. **Compliance** - Immutable records for regulatory requirements
 5. **Cloud Storage Backend** - Foundation for building secure cloud services
 
-## 🚀 Performance
+##  Performance
 
 - **Encryption Speed**: ~50-100 MB/s (depends on hardware)
 - **Blockchain Validation**: O(n) complexity, sub-second for chains <10,000 blocks
 - **Database Queries**: Optimized with indexes, <10ms for typical operations
 - **API Response Time**: <100ms for most operations
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 - [ ] Multi-factor authentication
 - [ ] File versioning
@@ -660,23 +660,23 @@ SecureCloudX/
 - [ ] WebSocket for real-time notifications
 - [ ] Admin dashboard UI
 
-## 📝 License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Authors
+##  Authors
 
 - **DAKSH KAMBOJ** - [Github](https://github.com/dakshk19)
 - **Yogesh Rana** - [GitHub](https://github.com/Yogesh-rana-2301)
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - FastAPI framework
 - PyCryptodome library
 - Python cryptography library
 - Docker community
 
-## 📞 Support
+##  Support
 
 For issues, questions, or contributions:
 
