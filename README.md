@@ -16,7 +16,7 @@ A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a *
 -  Docker Ready - Complete containerization for easy deployment
 -  Immutable Records - Blockchain validation ensures data integrity
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [Architecture](#architecture)
 - [Installation](#installation)
@@ -143,7 +143,7 @@ Once the server is running, access the interactive API documentation:
 3. **Download file** → Retrieve and decrypt
 4. **Share file** → Encrypt AES key with recipient's ECC public key
 
-## 📖 API Documentation
+##  API Documentation
 
 ### Base URL
 
@@ -683,7 +683,3 @@ For issues, questions, or contributions:
 - Open an issue on GitHub
 - Submit a pull request
 - Contact: dakshk9999@gmail.com
-
----
-
-**Built with ❤️ using Python, FastAPI, and modern cryptography**
