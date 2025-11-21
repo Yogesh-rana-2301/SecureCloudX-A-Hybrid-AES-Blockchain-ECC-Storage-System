@@ -1,7 +1,8 @@
 // API Base URL - Auto-detect environment
-const API_BASE = window.location.hostname === 'localhost' 
-    ? 'http://localhost:8000'  // Local development
-    : window.location.origin;   // Production (same domain)
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8000" // Local development
+    : window.location.origin; // Production (same domain)
 
 // Global state
 let currentUserId = null;
