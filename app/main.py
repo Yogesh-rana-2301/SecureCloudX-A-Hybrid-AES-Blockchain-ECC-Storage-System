@@ -419,16 +419,24 @@ async def get_blockchain():
     including validation status.
     """
     try:
+        logger.info("Fetching blockchain")
         is_valid = blockchain.validate_chain()
+        chain_data = blockchain.get_chain_as_dict()
+        
+        logger.info(f"Blockchain has {len(chain_data)} blocks, valid: {is_valid}")
         
         return {
-            "chain": blockchain.get_chain_as_dict(),
+            "chain": chain_data,
             "length": len(blockchain),
             "is_valid": is_valid,
+            "valid": is_valid,  # For backward compatibility
             "message": "Blockchain is valid" if is_valid else "WARNING: Blockchain has been tampered!"
         }
         
     except Exception as e:
+        logger.error(f"Failed to retrieve blockchain: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to retrieve blockchain: {str(e)}")
 
 
@@ -458,19 +466,25 @@ async def get_user_files(user_id: int):
     Returns file metadata for all files belonging to the user.
     """
     try:
+        logger.info(f"Fetching files for user_id: {user_id}")
+        
         # Verify user exists
         user = db.get_user_by_id(user_id)
         if not user:
+            logger.warning(f"User not found: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Get user's files
         files = db.get_files_by_owner(user_id)
+        logger.info(f"Found {len(files)} files for user {user_id}")
         
         # Get shared files
         shared_files = db.get_shared_files_for_user(user_id)
+        logger.info(f"Found {len(shared_files)} shared files for user {user_id}")
         
         return {
             "username": user['username'],
+            "files": files,  # For backward compatibility
             "owned_files": files,
             "shared_with_me": shared_files,
             "owned_count": len(files),

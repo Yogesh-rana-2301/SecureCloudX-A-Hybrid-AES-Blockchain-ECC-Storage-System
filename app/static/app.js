@@ -182,8 +182,8 @@ async function loadUserFiles(userId) {
 
     const filesList = document.getElementById("filesList");
 
-    if (data.files && data.files.length > 0) {
-      filesList.innerHTML = data.files
+    if (data.owned_files && data.owned_files.length > 0) {
+      filesList.innerHTML = data.owned_files
         .map(
           (file) => `
                 <div class="file-card">
@@ -304,7 +304,7 @@ async function loadBlockchain() {
     if (data.chain) {
       // Update status
       document.getElementById("chainLength").textContent = data.length;
-      document.getElementById("chainValid").textContent = data.valid
+      document.getElementById("chainValid").textContent = data.is_valid
         ? "Valid"
         : "Invalid";
 
