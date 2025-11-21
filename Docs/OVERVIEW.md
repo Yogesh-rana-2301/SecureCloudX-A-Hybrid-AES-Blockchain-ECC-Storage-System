@@ -110,7 +110,7 @@ File shares operations          # Sharing CRUD
 
 ---
 
-## 🌐 FastAPI Application (`app/main.py`)
+## FastAPI Application (`app/main.py`)
 
 ### Complete API Endpoints
 
