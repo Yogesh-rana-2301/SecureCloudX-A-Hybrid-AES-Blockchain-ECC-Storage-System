@@ -1,8 +1,10 @@
 """
 Database Module
-Handles SQLite database operations for users and files.
+Handles database operations for users and files.
+Supports both SQLite (local) and PostgreSQL (production).
 """
 
+import os
 import sqlite3
 from typing import Optional, List, Dict
 from contextlib import contextmanager
@@ -10,7 +12,8 @@ from contextlib import contextmanager
 
 class Database:
     """
-    Manages SQLite database connections and operations for SecureCloudX.
+    Manages database connections and operations for SecureCloudX.
+    Automatically uses PostgreSQL if DATABASE_URL is set, otherwise SQLite.
     """
     
     def __init__(self, db_path: str = 'securecloudx.db'):
@@ -18,9 +21,26 @@ class Database:
         Initialize database connection.
         
         Args:
-            db_path: Path to SQLite database file
+            db_path: Path to SQLite database file (used only if DATABASE_URL not set)
         """
         self.db_path = db_path
+        self.database_url = os.getenv('DATABASE_URL')
+        
+        # Detect database type
+        if self.database_url:
+            # PostgreSQL for production (Render/Heroku)
+            import psycopg2
+            import psycopg2.extras
+            self.is_postgres = True
+            self.db_module = psycopg2
+            # Fix for Heroku's postgres:// URL
+            if self.database_url.startswith("postgres://"):
+                self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+        else:
+            # SQLite for local development
+            self.is_postgres = False
+            self.db_module = sqlite3
+        
         self.init_database()
     
     @contextmanager
@@ -29,10 +49,17 @@ class Database:
         Context manager for database connections.
         
         Yields:
-            sqlite3.Connection: Database connection
+            Connection: Database connection (psycopg2 or sqlite3)
         """
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        if self.is_postgres:
+            import psycopg2
+            import psycopg2.extras
+            conn = psycopg2.connect(self.database_url, sslmode='require')
+            conn.cursor_factory = psycopg2.extras.RealDictCursor
+        else:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+        
         try:
             yield conn
             conn.commit()
@@ -45,51 +72,91 @@ class Database:
     def init_database(self):
         """
         Create database tables if they don't exist.
+        Compatible with both PostgreSQL and SQLite.
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Create users table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    ecc_public_key TEXT NOT NULL,
-                    ecc_private_key TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            # Create files table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS files (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    owner_id INTEGER NOT NULL,
-                    filename TEXT NOT NULL,
-                    stored_path TEXT NOT NULL,
-                    block_index INTEGER NOT NULL,
-                    encrypted_data TEXT NOT NULL,
-                    iv TEXT NOT NULL,
-                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (owner_id) REFERENCES users (id)
-                )
-            ''')
-            
-            # Create file_shares table for tracking shared files
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS file_shares (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    file_id INTEGER NOT NULL,
-                    owner_id INTEGER NOT NULL,
-                    recipient_id INTEGER NOT NULL,
-                    encrypted_aes_key TEXT NOT NULL,
-                    block_index INTEGER NOT NULL,
-                    shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (file_id) REFERENCES files (id),
-                    FOREIGN KEY (owner_id) REFERENCES users (id),
-                    FOREIGN KEY (recipient_id) REFERENCES users (id)
-                )
-            ''')
+            if self.is_postgres:
+                # PostgreSQL syntax
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        username TEXT UNIQUE NOT NULL,
+                        ecc_public_key TEXT NOT NULL,
+                        ecc_private_key TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS files (
+                        id SERIAL PRIMARY KEY,
+                        owner_id INTEGER NOT NULL,
+                        filename TEXT NOT NULL,
+                        stored_path TEXT NOT NULL,
+                        block_index INTEGER NOT NULL,
+                        encrypted_data TEXT NOT NULL,
+                        iv TEXT NOT NULL,
+                        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (owner_id) REFERENCES users (id)
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS file_shares (
+                        id SERIAL PRIMARY KEY,
+                        file_id INTEGER NOT NULL,
+                        owner_id INTEGER NOT NULL,
+                        recipient_id INTEGER NOT NULL,
+                        encrypted_aes_key TEXT NOT NULL,
+                        block_index INTEGER NOT NULL,
+                        shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (file_id) REFERENCES files (id),
+                        FOREIGN KEY (owner_id) REFERENCES users (id),
+                        FOREIGN KEY (recipient_id) REFERENCES users (id)
+                    )
+                ''')
+            else:
+                # SQLite syntax
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        ecc_public_key TEXT NOT NULL,
+                        ecc_private_key TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS files (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        owner_id INTEGER NOT NULL,
+                        filename TEXT NOT NULL,
+                        stored_path TEXT NOT NULL,
+                        block_index INTEGER NOT NULL,
+                        encrypted_data TEXT NOT NULL,
+                        iv TEXT NOT NULL,
+                        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (owner_id) REFERENCES users (id)
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS file_shares (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        file_id INTEGER NOT NULL,
+                        owner_id INTEGER NOT NULL,
+                        recipient_id INTEGER NOT NULL,
+                        encrypted_aes_key TEXT NOT NULL,
+                        block_index INTEGER NOT NULL,
+                        shared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (file_id) REFERENCES files (id),
+                        FOREIGN KEY (owner_id) REFERENCES users (id),
+                        FOREIGN KEY (recipient_id) REFERENCES users (id)
+                    )
+                ''')
     
     # User operations
     
