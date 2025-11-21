@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureCloudX - Secure Cloud Storage</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M16 4L8 12H12V20H20V12H24L16 4Z" fill="currentColor" />
+            <path d="M6 24H26V28H6V24Z" fill="currentColor" />
+          </svg>
+          <span>SecureCloudX</span>
+        </div>
+        <nav class="nav">
+          <a href="#home" class="nav-link active">Home</a>
+          <a href="#files" class="nav-link">Files</a>
+          <a href="#blockchain" class="nav-link">Blockchain</a>
+          <a href="/docs" target="_blank" class="nav-link">API Docs</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+      <div class="container">
+        <div class="hero-content">
+          <h1 class="hero-title">
+            Secure Cloud Storage<br />with
+            <span class="gradient-text">AES-256 & Blockchain</span>
+          </h1>
+          <p class="hero-subtitle">
+            An Advanced encryption meets decentralized security. Upload,
+            encrypt, and share files with confidence.
+          </p>
+          <div class="hero-features">
+            <div class="feature-badge">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M10 2L2.5 7L10 12L17.5 7L10 2Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M2.5 13L10 18L17.5 13"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
+              AES-256 Encryption
+            </div>
+            <div class="feature-badge">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect
+                  x="3"
+                  y="3"
+                  width="14"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M7 10H13M10 7V13"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
+              Blockchain Ledger
+            </div>
+            <div class="feature-badge">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="7"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M10 6V10L13 13"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
+              ECC Key Exchange
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="container">
+        <!-- User Section -->
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-title">User Management</h2>
+            <p class="section-subtitle">
+              Register and manage your secure account
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Register New User</h3>
+            </div>
+            <div class="card-body">
+              <form id="registerForm" class="form">
+                <div class="form-group">
+                  <label for="username" class="form-label">Username</label>
+                  <input
+                    type="text"
+                    id="username"
+                    class="form-input"
+                    placeholder="Enter username"
+                    required
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 2V14M2 8H14"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                  </svg>
+                  Register User
+                </button>
+              </form>
+              <div id="registerResult" class="result"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Active Users</h3>
+              <button onclick="loadUsers()" class="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M14 8C14 8 13 11 8 11C3 11 2 8 2 8C2 8 3 5 8 5C13 5 14 8 14 8Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="2"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div class="card-body">
+              <div id="usersList" class="users-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- File Upload Section -->
+        <section id="files" class="section">
+          <div class="section-header">
+            <h2 class="section-title">File Management</h2>
+            <p class="section-subtitle">
+              Upload, encrypt, and manage your files
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Upload File</h3>
+            </div>
+            <div class="card-body">
+              <form id="uploadForm" class="form">
+                <div class="form-group">
+                  <label for="ownerId" class="form-label">User ID</label>
+                  <input
+                    type="number"
+                    id="ownerId"
+                    class="form-input"
+                    placeholder="Enter your user ID"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="fileUpload" class="form-label">Choose File</label>
+                  <div class="file-input-wrapper">
+                    <input
+                      type="file"
+                      id="fileUpload"
+                      class="file-input"
+                      required
+                    />
+                    <label for="fileUpload" class="file-input-label">
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                      >
+                        <path
+                          d="M10 4V16M4 10H16"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        />
+                      </svg>
+                      <span id="fileName">Choose file or drag here</span>
+                    </label>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 2V10M8 2L5 5M8 2L11 5"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                    <path d="M2 14H14" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                  Encrypt & Upload
+                </button>
+              </form>
+              <div id="uploadResult" class="result"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>My Files</h3>
+              <div class="input-group">
+                <input
+                  type="number"
+                  id="filesUserId"
+                  class="form-input-sm"
+                  placeholder="User ID"
+                />
+                <button onclick="loadUserFiles()" class="btn-sm btn-primary">
+                  Load Files
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="filesList" class="files-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Share Section -->
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-title">Share Files</h2>
+            <p class="section-subtitle">
+              Securely share files using ECC encryption
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Share a File</h3>
+            </div>
+            <div class="card-body">
+              <form id="shareForm" class="form">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="shareFileId" class="form-label">File ID</label>
+                    <input
+                      type="number"
+                      id="shareFileId"
+                      class="form-input"
+                      placeholder="Enter file ID"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="shareOwnerId" class="form-label"
+                      >Your User ID</label
+                    >
+                    <input
+                      type="number"
+                      id="shareOwnerId"
+                      class="form-input"
+                      placeholder="Enter your ID"
+                      required
+                    />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="recipientUsername" class="form-label"
+                    >Recipient Username</label
+                  >
+                  <input
+                    type="text"
+                    id="recipientUsername"
+                    class="form-input"
+                    placeholder="Enter recipient username"
+                    required
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 2L12 6L8 10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                    <path d="M12 6H2" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                  Share File
+                </button>
+              </form>
+              <div id="shareResult" class="result"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Blockchain Section -->
+        <section id="blockchain" class="section">
+          <div class="section-header">
+            <h2 class="section-title">Blockchain Ledger</h2>
+            <p class="section-subtitle">View the blockchain record</p>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Chain Status</h3>
+              <button onclick="loadBlockchain()" class="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M14 8A6 6 0 1 1 2 8"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M2 8L5 5M2 8L5 11"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div class="card-body">
+              <div id="blockchainStatus" class="blockchain-status"></div>
+              <div id="blockchainBlocks" class="blockchain-blocks"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-text">
+            <p>🍁 Built by Yogesh Rana and Daksh Kamboj.</p>
+          </div>
+          <div class="footer-links">
+            <a href="/docs" target="_blank">API Documentation</a>
+            <a href="/health" target="_blank">Health Check</a>
+            <a
+              href="https://github.com/Yogesh-rana-2301/SecureCloudX-A-Hybrid-AES-Blockchain-ECC-Storage-System"
+              target="_blank"
+              >GitHub</a
+            >
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

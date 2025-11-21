@@ -4,7 +4,9 @@ Main application file with REST API endpoints for secure cloud storage.
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import base64
@@ -26,6 +28,18 @@ app = FastAPI(
     description="Secure cloud storage with AES encryption, blockchain ledger, and ECC key exchange",
     version="1.0.0"
 )
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
 # Initialize blockchain and database
 blockchain = Blockchain('blockchain/chain.json')
@@ -67,21 +81,9 @@ class FileShareResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    """Root endpoint with API information."""
-    return {
-        "name": "SecureCloudX",
-        "version": "1.0.0",
-        "description": "Secure cloud storage with AES-256, Blockchain, and ECC",
-        "endpoints": {
-            "POST /register": "Register a new user with ECC keypair",
-            "POST /upload": "Upload and encrypt a file",
-            "GET /download/{file_id}": "Download and decrypt a file",
-            "POST /share": "Share a file with another user",
-            "GET /chain": "View the blockchain ledger",
-            "GET /users": "List all registered users",
-            "GET /files/{user_id}": "List files owned by a user"
-        }
-    }
+    """Root endpoint - serve the frontend application."""
+    static_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    return FileResponse(static_path)
 
 
 @app.post("/register", response_model=UserRegisterResponse)
