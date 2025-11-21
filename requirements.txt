@@ -4,5 +4,5 @@ pydantic==2.10.4
 python-multipart==0.0.20
 pycryptodome==3.21.0
 cryptography==44.0.0
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 gunicorn==21.2.0
