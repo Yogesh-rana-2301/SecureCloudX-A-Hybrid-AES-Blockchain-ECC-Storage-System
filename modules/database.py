@@ -43,6 +43,21 @@ class Database:
         
         self.init_database()
     
+    def _get_placeholder(self, count=1):
+        """
+        Get the correct SQL parameter placeholder for the database type.
+        
+        Args:
+            count: Number of placeholders needed
+            
+        Returns:
+            str: Placeholder string (? for SQLite, %s for PostgreSQL)
+        """
+        if self.is_postgres:
+            return ', '.join(['%s'] * count) if count > 1 else '%s'
+        else:
+            return ', '.join(['?'] * count) if count > 1 else '?'
+    
     @contextmanager
     def get_connection(self):
         """
@@ -177,10 +192,14 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            placeholders = self._get_placeholder(3)
             cursor.execute(
-                'INSERT INTO users (username, ecc_public_key, ecc_private_key) VALUES (?, ?, ?)',
+                f'INSERT INTO users (username, ecc_public_key, ecc_private_key) VALUES ({placeholders})',
                 (username, public_key, private_key)
             )
+            if self.is_postgres:
+                cursor.execute('SELECT lastval()')
+                return cursor.fetchone()[0]
             return cursor.lastrowid
     
     def get_user_by_id(self, user_id: int) -> Optional[Dict]:
@@ -195,7 +214,8 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+            placeholder = self._get_placeholder()
+            cursor.execute(f'SELECT * FROM users WHERE id = {placeholder}', (user_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
     
@@ -211,7 +231,8 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+            placeholder = self._get_placeholder()
+            cursor.execute(f'SELECT * FROM users WHERE username = {placeholder}', (username,))
             row = cursor.fetchone()
             return dict(row) if row else None
     
@@ -247,12 +268,16 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            placeholders = self._get_placeholder(6)
             cursor.execute(
-                '''INSERT INTO files 
+                f'''INSERT INTO files 
                    (owner_id, filename, stored_path, block_index, encrypted_data, iv) 
-                   VALUES (?, ?, ?, ?, ?, ?)''',
+                   VALUES ({placeholders})''',
                 (owner_id, filename, stored_path, block_index, encrypted_data, iv)
             )
+            if self.is_postgres:
+                cursor.execute('SELECT lastval()')
+                return cursor.fetchone()[0]
             return cursor.lastrowid
     
     def get_file_by_id(self, file_id: int) -> Optional[Dict]:
@@ -267,7 +292,8 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM files WHERE id = ?', (file_id,))
+            placeholder = self._get_placeholder()
+            cursor.execute(f'SELECT * FROM files WHERE id = {placeholder}', (file_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
     
@@ -283,7 +309,8 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM files WHERE owner_id = ?', (owner_id,))
+            placeholder = self._get_placeholder()
+            cursor.execute(f'SELECT * FROM files WHERE owner_id = {placeholder}', (owner_id,))
             return [dict(row) for row in cursor.fetchall()]
     
     def delete_file(self, file_id: int) -> bool:
@@ -298,7 +325,8 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM files WHERE id = ?', (file_id,))
+            placeholder = self._get_placeholder()
+            cursor.execute(f'DELETE FROM files WHERE id = {placeholder}', (file_id,))
             return cursor.rowcount > 0
     
     # File sharing operations
@@ -320,12 +348,16 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            placeholders = self._get_placeholder(5)
             cursor.execute(
-                '''INSERT INTO file_shares 
+                f'''INSERT INTO file_shares 
                    (file_id, owner_id, recipient_id, encrypted_aes_key, block_index) 
-                   VALUES (?, ?, ?, ?, ?)''',
+                   VALUES ({placeholders})''',
                 (file_id, owner_id, recipient_id, encrypted_aes_key, block_index)
             )
+            if self.is_postgres:
+                cursor.execute('SELECT lastval()')
+                return cursor.fetchone()[0]
             return cursor.lastrowid
     
     def get_shared_files_for_user(self, recipient_id: int) -> List[Dict]:
@@ -340,12 +372,13 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            placeholder = self._get_placeholder()
             cursor.execute(
-                '''SELECT fs.*, f.filename, f.encrypted_data, f.iv, u.username as owner_username
+                f'''SELECT fs.*, f.filename, f.encrypted_data, f.iv, u.username as owner_username
                    FROM file_shares fs
                    JOIN files f ON fs.file_id = f.id
                    JOIN users u ON fs.owner_id = u.id
-                   WHERE fs.recipient_id = ?''',
+                   WHERE fs.recipient_id = {placeholder}''',
                 (recipient_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
@@ -363,8 +396,9 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            ph1, ph2 = (self._get_placeholder(), self._get_placeholder())
             cursor.execute(
-                'SELECT * FROM file_shares WHERE file_id = ? AND recipient_id = ?',
+                f'SELECT * FROM file_shares WHERE file_id = {ph1} AND recipient_id = {ph2}',
                 (file_id, recipient_id)
             )
             row = cursor.fetchone()
