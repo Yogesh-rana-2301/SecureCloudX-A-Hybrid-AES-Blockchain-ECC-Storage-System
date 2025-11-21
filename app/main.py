@@ -12,6 +12,15 @@ from typing import Optional
 import base64
 import os
 import sys
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 # Add modules to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -42,8 +51,43 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
 # Initialize blockchain and database
-blockchain = Blockchain('blockchain/chain.json')
-db = Database('securecloudx.db')
+blockchain = None
+db = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    global blockchain, db
+    try:
+        # Use /tmp for blockchain on Render (ephemeral but writable)
+        chain_path = '/tmp/blockchain/chain.json' if os.getenv('RENDER') else 'blockchain/chain.json'
+        logger.info(f"Initializing blockchain at {chain_path}")
+        blockchain = Blockchain(chain_path)
+        logger.info(f"Blockchain initialized with {len(blockchain.chain)} blocks")
+        
+        logger.info("Initializing database connection")
+        db = Database('securecloudx.db')
+        logger.info(f"✅ Startup successful - Database: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
+    except Exception as e:
+        logger.error(f"❌ Startup error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise  # Re-raise to prevent app from starting with broken state
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    try:
+        status = {
+            "status": "healthy",
+            "database": "PostgreSQL" if db and db.is_postgres else "SQLite",
+            "blockchain_blocks": len(blockchain.chain) if blockchain else 0
+        }
+        logger.info(f"Health check: {status}")
+        return status
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Pydantic models for request/response
