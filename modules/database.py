@@ -199,7 +199,8 @@ class Database:
             )
             if self.is_postgres:
                 cursor.execute('SELECT lastval()')
-                return cursor.fetchone()[0]
+                result = cursor.fetchone()
+                return result['lastval'] if isinstance(result, dict) else result[0]
             return cursor.lastrowid
     
     def get_user_by_id(self, user_id: int) -> Optional[Dict]:
@@ -277,7 +278,8 @@ class Database:
             )
             if self.is_postgres:
                 cursor.execute('SELECT lastval()')
-                return cursor.fetchone()[0]
+                result = cursor.fetchone()
+                return result['lastval'] if isinstance(result, dict) else result[0]
             return cursor.lastrowid
     
     def get_file_by_id(self, file_id: int) -> Optional[Dict]:
@@ -357,7 +359,8 @@ class Database:
             )
             if self.is_postgres:
                 cursor.execute('SELECT lastval()')
-                return cursor.fetchone()[0]
+                result = cursor.fetchone()
+                return result['lastval'] if isinstance(result, dict) else result[0]
             return cursor.lastrowid
     
     def get_shared_files_for_user(self, recipient_id: int) -> List[Dict]:
