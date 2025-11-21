@@ -182,16 +182,46 @@ async function loadUserFiles(userId) {
 
     const filesList = document.getElementById("filesList");
 
+    // Combine owned files and shared files
+    const allFiles = [];
+
     if (data.owned_files && data.owned_files.length > 0) {
-      filesList.innerHTML = data.owned_files
+      allFiles.push(
+        ...data.owned_files.map((file) => ({
+          ...file,
+          type: "owned",
+        }))
+      );
+    }
+
+    if (data.shared_with_me && data.shared_with_me.length > 0) {
+      allFiles.push(
+        ...data.shared_with_me.map((file) => ({
+          ...file,
+          type: "shared",
+        }))
+      );
+    }
+
+    if (allFiles.length > 0) {
+      filesList.innerHTML = allFiles
         .map(
           (file) => `
                 <div class="file-card">
                     <div class="file-info">
-                        <div class="file-name">${file.filename}</div>
-                        <div class="file-meta">File ID: ${
-                          file.id
-                        } • Uploaded: ${formatTimestamp(file.uploaded_at)}</div>
+                        <div class="file-name">
+                            ${file.filename}
+                            ${
+                              file.type === "shared"
+                                ? '<span class="badge-shared">Shared</span>'
+                                : ""
+                            }
+                        </div>
+                        <div class="file-meta">File ID: ${file.id} • ${
+            file.type === "shared"
+              ? "Shared by User " + file.owner_id
+              : "Uploaded"
+          }: ${formatTimestamp(file.uploaded_at || file.shared_at)}</div>
                     </div>
                     <div class="file-actions">
                         <button class="btn-download" onclick="downloadFile(${

@@ -91,18 +91,22 @@ class Blockchain:
     Manages the blockchain ledger of encrypted AES keys.
     """
     
-    def __init__(self, chain_file: str = 'blockchain/chain.json'):
+    def __init__(self, chain_file: str = 'blockchain/chain.json', db=None):
         """
         Initialize blockchain, loading existing chain or creating genesis block.
         
         Args:
-            chain_file: Path to JSON file for storing the blockchain
+            chain_file: Path to JSON file for storing the blockchain (fallback)
+            db: Database instance for persistent storage (preferred)
         """
         self.chain_file = chain_file
         self.chain: List[Block] = []
+        self.db = db
         
-        # Try to load existing chain, otherwise create genesis block
-        if not self.load_chain_from_json():
+        # Try to load from database first, then from file, otherwise create genesis block
+        if self.db and self.load_chain_from_database():
+            pass  # Successfully loaded from database
+        elif not self.load_chain_from_json():
             self.create_genesis_block()
     
     def create_genesis_block(self):
@@ -146,7 +150,12 @@ class Blockchain:
         )
         
         self.chain.append(new_block)
-        self.save_chain_to_json()
+        
+        # Save to database if available, otherwise save to JSON
+        if self.db:
+            self.save_block_to_database(new_block)
+        else:
+            self.save_chain_to_json()
         
         return new_block
     
@@ -237,6 +246,63 @@ class Blockchain:
             List[dict]: List of block dictionaries
         """
         return [block.to_dict() for block in self.chain]
+    
+    def save_block_to_database(self, block: Block):
+        """
+        Save a single block to the database.
+        
+        Args:
+            block: Block instance to save
+        """
+        if self.db:
+            self.db.save_blockchain_block(
+                block_index=block.index,
+                timestamp=block.timestamp,
+                data=block.data,
+                previous_hash=block.previous_hash,
+                block_hash=block.hash
+            )
+    
+    def load_chain_from_database(self) -> bool:
+        """
+        Load the blockchain from the database.
+        
+        Returns:
+            bool: True if chain was loaded successfully, False otherwise
+        """
+        if not self.db:
+            return False
+        
+        try:
+            blocks_data = self.db.load_blockchain_blocks()
+            
+            if not blocks_data:
+                return False
+            
+            # Reconstruct blocks from database
+            self.chain = []
+            for block_data in blocks_data:
+                block = Block(
+                    index=block_data['block_index'],
+                    timestamp=block_data['block_timestamp'],
+                    data=block_data['block_data'],
+                    previous_hash=block_data['previous_hash']
+                )
+                # Override the calculated hash with the stored one
+                block.hash = block_data['block_hash']
+                self.chain.append(block)
+            
+            # Validate loaded chain
+            if not self.validate_chain():
+                print("WARNING: Loaded blockchain from database is invalid!")
+                return False
+            
+            return True
+        except Exception as e:
+            print(f"Error loading blockchain from database: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
     
     def __len__(self) -> int:
         """Get the number of blocks in the chain."""

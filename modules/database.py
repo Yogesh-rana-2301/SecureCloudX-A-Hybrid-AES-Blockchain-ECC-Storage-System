@@ -132,6 +132,18 @@ class Database:
                         FOREIGN KEY (recipient_id) REFERENCES users (id)
                     )
                 ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS blockchain_blocks (
+                        id SERIAL PRIMARY KEY,
+                        block_index INTEGER NOT NULL UNIQUE,
+                        block_timestamp REAL NOT NULL,
+                        block_data TEXT NOT NULL,
+                        previous_hash TEXT NOT NULL,
+                        block_hash TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
             else:
                 # SQLite syntax
                 cursor.execute('''
@@ -170,6 +182,18 @@ class Database:
                         FOREIGN KEY (file_id) REFERENCES files (id),
                         FOREIGN KEY (owner_id) REFERENCES users (id),
                         FOREIGN KEY (recipient_id) REFERENCES users (id)
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS blockchain_blocks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        block_index INTEGER NOT NULL UNIQUE,
+                        block_timestamp REAL NOT NULL,
+                        block_data TEXT NOT NULL,
+                        previous_hash TEXT NOT NULL,
+                        block_hash TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
     
@@ -406,3 +430,66 @@ class Database:
             )
             row = cursor.fetchone()
             return dict(row) if row else None
+    
+    # Blockchain persistence operations
+    
+    def save_blockchain_block(self, block_index: int, timestamp: float, data: dict, 
+                              previous_hash: str, block_hash: str) -> int:
+        """
+        Save a blockchain block to the database.
+        
+        Args:
+            block_index: Block index in the chain
+            timestamp: Block timestamp
+            data: Block data as dictionary
+            previous_hash: Previous block hash
+            block_hash: Current block hash
+            
+        Returns:
+            int: Database ID of saved block
+        """
+        import json
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = self._get_placeholder(5)
+            cursor.execute(
+                f'''INSERT INTO blockchain_blocks 
+                   (block_index, block_timestamp, block_data, previous_hash, block_hash) 
+                   VALUES ({placeholders})''',
+                (block_index, timestamp, json.dumps(data), previous_hash, block_hash)
+            )
+            if self.is_postgres:
+                cursor.execute('SELECT lastval()')
+                result = cursor.fetchone()
+                return result['lastval'] if isinstance(result, dict) else result[0]
+            return cursor.lastrowid
+    
+    def load_blockchain_blocks(self) -> List[Dict]:
+        """
+        Load all blockchain blocks from the database, ordered by block_index.
+        
+        Returns:
+            List[dict]: List of blockchain blocks
+        """
+        import json
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT * FROM blockchain_blocks ORDER BY block_index ASC'
+            )
+            blocks = []
+            for row in cursor.fetchall():
+                block_dict = dict(row)
+                # Parse the JSON data string back to dict
+                block_dict['block_data'] = json.loads(block_dict['block_data'])
+                blocks.append(block_dict)
+            return blocks
+    
+    def clear_blockchain_blocks(self):
+        """
+        Clear all blockchain blocks from the database.
+        Useful for testing or resetting the blockchain.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM blockchain_blocks')

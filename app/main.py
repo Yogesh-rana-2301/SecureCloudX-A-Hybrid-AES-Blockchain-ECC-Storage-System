@@ -77,15 +77,17 @@ async def startup_event():
     """Initialize services on startup"""
     global blockchain, db
     try:
-        # Use /tmp for blockchain on Render (ephemeral but writable)
-        chain_path = '/tmp/blockchain/chain.json' if os.getenv('RENDER') else 'blockchain/chain.json'
-        logger.info(f"Initializing blockchain at {chain_path}")
-        blockchain = Blockchain(chain_path)
-        logger.info(f"Blockchain initialized with {len(blockchain.chain)} blocks")
-        
+        # Initialize database first
         logger.info("Initializing database connection")
         db = Database('securecloudx.db')
-        logger.info(f"✅ Startup successful - Database: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
+        logger.info(f"✅ Database initialized - Type: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
+        
+        # Initialize blockchain with database persistence
+        chain_path = '/tmp/blockchain/chain.json' if os.getenv('RENDER') else 'blockchain/chain.json'
+        logger.info(f"Initializing blockchain with database persistence (fallback: {chain_path})")
+        blockchain = Blockchain(chain_path, db=db)
+        logger.info(f"✅ Blockchain initialized with {len(blockchain.chain)} blocks")
+        
     except Exception as e:
         logger.error(f"❌ Startup error: {e}")
         import traceback
