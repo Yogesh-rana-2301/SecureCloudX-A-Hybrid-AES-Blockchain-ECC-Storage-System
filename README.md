@@ -1,22 +1,23 @@
 # SecureCloudX - Hybrid AES-Blockchain-ECC Storage System
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115.5-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Deploy](https://img.shields.io/badge/deploy-Render-purple.svg)
 
-A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a **custom blockchain ledger**, and **ECC (Elliptic Curve Cryptography)** for secure key sharing.
+A secure cloud storage backend that combines **Dynamic AES-256** encryption, a custom **blockchain ledger**, and **ECC (Elliptic Curve Cryptography)** for secure key sharing.
 
-##  Key Features
+## Key Features
 
--  Dynamic AES-256 Encryption - Each file encrypted with a unique, one-time AES key
--  Blockchain Mini-Ledger - Tamper-proof storage of encryption keys with full traceability
--  ECC Key Exchange - SECP256R1 curve for lightweight, high-security public-private key cryptography
--  RESTful APIs - FastAPI-based endpoints for seamless integration
--  SQLite Database - Local metadata storage for users and files
--  Docker Ready - Complete containerization for easy deployment
--  Immutable Records - Blockchain validation ensures data integrity
+- Dynamic AES-256 Encryption - Each file encrypted with a unique, one-time AES key
+- Blockchain Mini-Ledger - Tamper-proof storage of encryption keys with full traceability
+- ECC Key Exchange - SECP256R1 curve for lightweight, high-security public-private key cryptography
+- RESTful APIs - FastAPI-based endpoints for seamless integration
+- SQLite Database - Local metadata storage for users and files
+- Docker Ready - Complete containerization
+- Immutable Records - Blockchain validation ensures data integrity
 
-##  Table of Contents
+## Table of Contents
 
 - [Architecture](#architecture)
 - [Installation](#installation)
@@ -65,15 +66,17 @@ A secure cloud storage backend that combines **Dynamic AES-256 encryption**, a *
 
 ### Technology Stack
 
-- **Python 3.10+** - Core language
-- **FastAPI** - Modern web framework
+- **Python 3.11+** - Core language
+- **FastAPI** - Modern async web framework
 - **Uvicorn** - ASGI server
-- **PyCryptodome** - AES encryption
+- **Gunicorn** - Production WSGI server
+- **PyCryptodome** - AES-256 encryption
 - **cryptography** - ECC implementation
-- **SQLite** - Database
+- **PostgreSQL** - Production database
+- **SQLite** - Local development database
 - **Docker** - Containerization
 
-##  Installation
+## Installation
 
 ### Prerequisites
 
@@ -143,7 +146,7 @@ Once the server is running, access the interactive API documentation:
 3. **Download file** → Retrieve and decrypt
 4. **Share file** → Encrypt AES key with recipient's ECC public key
 
-##  API Documentation
+## API Documentation
 
 ### Base URL
 
@@ -634,7 +637,7 @@ SecureCloudX/
 - AES keys never exposed in plaintext (except in-memory during operations)
 - ECC-encrypted keys for sharing
 
-##  Use Cases
+## Use Cases
 
 1. **Secure Document Management** - Store sensitive documents with encryption
 2. **Collaborative File Sharing** - Share files securely between users
@@ -642,14 +645,14 @@ SecureCloudX/
 4. **Compliance** - Immutable records for regulatory requirements
 5. **Cloud Storage Backend** - Foundation for building secure cloud services
 
-##  Performance
+## Performance
 
 - **Encryption Speed**: ~50-100 MB/s (depends on hardware)
 - **Blockchain Validation**: O(n) complexity, sub-second for chains <10,000 blocks
 - **Database Queries**: Optimized with indexes, <10ms for typical operations
 - **API Response Time**: <100ms for most operations
 
-##  Future Enhancements
+## Future Enhancements
 
 - [ ] Multi-factor authentication
 - [ ] File versioning
@@ -660,23 +663,23 @@ SecureCloudX/
 - [ ] WebSocket for real-time notifications
 - [ ] Admin dashboard UI
 
-##  License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-##  Authors
+## Authors
 
 - **DAKSH KAMBOJ** - [Github](https://github.com/dakshk19)
 - **Yogesh Rana** - [GitHub](https://github.com/Yogesh-rana-2301)
 
-##  Acknowledgments
+## Acknowledgments
 
 - FastAPI framework
 - PyCryptodome library
 - Python cryptography library
 - Docker community
 
-##  Support
+## Support
 
 For issues, questions, or contributions:
 
