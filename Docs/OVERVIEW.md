@@ -200,36 +200,30 @@ After starting the server:
 
 ## Next Steps
 
-1. **Verify Installation**
-
-   ```bash
-   python verify_project.py
-   ```
-
-2. **Install Dependencies**
+1. **Install Dependencies**
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Start Server**
+2. **Start Server**
 
    ```bash
    ./start.sh  # or start.bat on Windows
    ```
 
-4. **Test System**
+3. **Test System**
 
    ```bash
    python test_system.py
    ```
 
-5. **Explore API**
+4. **Explore API**
 
    - Open http://localhost:8000/docs
    - Try the interactive examples
 
-6. **Read Documentation**
+5. **Read Documentation**
    - README.md for overview
    - API_EXAMPLES.md for usage
    - SETUP_GUIDE.md for deployment
