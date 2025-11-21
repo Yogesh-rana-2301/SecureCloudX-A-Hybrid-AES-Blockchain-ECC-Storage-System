@@ -57,7 +57,11 @@ async function registerUser() {
       document.getElementById("registerForm").reset();
       await loadUsers();
     } else {
-      showResult("registerResult", data.error || "Registration failed", false);
+      showResult(
+        "registerResult",
+        data.detail || data.error || "Registration failed",
+        false
+      );
     }
   } catch (error) {
     showResult("registerResult", "Network error: " + error.message, false);
@@ -125,7 +129,7 @@ async function uploadFile() {
   }
 
   const formData = new FormData();
-  formData.append("user_id", userId);
+  formData.append("owner_id", userId);
   formData.append("file", file);
 
   try {
@@ -147,7 +151,11 @@ async function uploadFile() {
       await loadUserFiles(userId);
       await loadBlockchain();
     } else {
-      showResult("uploadResult", data.error || "Upload failed", false);
+      showResult(
+        "uploadResult",
+        data.detail || data.error || "Upload failed",
+        false
+      );
     }
   } catch (error) {
     showResult("uploadResult", "Network error: " + error.message, false);
@@ -188,7 +196,7 @@ async function loadUserFiles(userId) {
                     <div class="file-actions">
                         <button class="btn-download" onclick="downloadFile(${
                           file.id
-                        }, '${file.filename}')">
+                        }, '${file.filename}', ${userId})">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="7 10 12 15 17 10"/>
@@ -214,9 +222,16 @@ async function loadUserFiles(userId) {
   }
 }
 
-async function downloadFile(fileId, filename) {
+async function downloadFile(fileId, filename, userId) {
+  if (!userId) {
+    alert("Please select a user first");
+    return;
+  }
+
   try {
-    const response = await fetch(`${API_BASE}/download/${fileId}`);
+    const response = await fetch(
+      `${API_BASE}/download/${fileId}?user_id=${userId}`
+    );
 
     if (response.ok) {
       const blob = await response.blob();
@@ -230,7 +245,9 @@ async function downloadFile(fileId, filename) {
       window.URL.revokeObjectURL(url);
     } else {
       const data = await response.json();
-      alert("Download failed: " + (data.error || "Unknown error"));
+      alert(
+        "Download failed: " + (data.detail || data.error || "Unknown error")
+      );
     }
   } catch (error) {
     alert("Network error: " + error.message);
@@ -256,8 +273,8 @@ async function shareFile() {
       },
       body: JSON.stringify({
         file_id: parseInt(fileId),
-        sender_user_id: parseInt(senderId),
-        recipient_user_id: parseInt(recipientId),
+        owner_id: parseInt(senderId),
+        recipient_id: parseInt(recipientId),
       }),
     });
 
@@ -267,7 +284,11 @@ async function shareFile() {
       showResult("shareResult", "File shared successfully!", true);
       document.getElementById("shareForm").reset();
     } else {
-      showResult("shareResult", data.error || "Sharing failed", false);
+      showResult(
+        "shareResult",
+        data.detail || data.error || "Sharing failed",
+        false
+      );
     }
   } catch (error) {
     showResult("shareResult", "Network error: " + error.message, false);
@@ -311,36 +332,42 @@ async function loadBlockchain() {
                             }</span>
                         </div>
                         ${
-                          block.data
+                          block.data && block.data.filename
                             ? `
                         <div class="block-field">
-                            <span class="block-label">File ID:</span>
+                            <span class="block-label">Owner ID:</span>
                             <span class="block-value">${
-                              block.data.file_id
-                            }</span>
-                        </div>
-                        <div class="block-field">
-                            <span class="block-label">User ID:</span>
-                            <span class="block-value">${
-                              block.data.user_id
+                              block.data.owner_id || "N/A"
                             }</span>
                         </div>
                         <div class="block-field">
                             <span class="block-label">Filename:</span>
                             <span class="block-value">${
-                              block.data.filename
+                              block.data.filename || "N/A"
                             }</span>
                         </div>
                         <div class="block-field">
-                            <span class="block-label">AES Key (encrypted):</span>
+                            <span class="block-label">Action:</span>
                             <span class="block-value">${
-                              block.data.aes_key_encrypted
-                                ? block.data.aes_key_encrypted.substring(
-                                    0,
-                                    50
-                                  ) + "..."
-                                : "N/A"
+                              block.data.action || "upload"
                             }</span>
+                        </div>
+                        ${
+                          block.data.recipient_id
+                            ? `
+                        <div class="block-field">
+                            <span class="block-label">Recipient ID:</span>
+                            <span class="block-value">${block.data.recipient_id}</span>
+                        </div>
+                        `
+                            : ""
+                        }
+                        `
+                            : block.data && block.data.message
+                            ? `
+                        <div class="block-field">
+                            <span class="block-label">Message:</span>
+                            <span class="block-value">${block.data.message}</span>
                         </div>
                         `
                             : ""

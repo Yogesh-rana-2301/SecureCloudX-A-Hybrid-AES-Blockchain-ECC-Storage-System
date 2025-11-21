@@ -130,7 +130,7 @@ class FileUploadResponse(BaseModel):
 class FileShareRequest(BaseModel):
     file_id: int
     owner_id: int
-    recipient_username: str
+    recipient_id: int
 
 
 class FileShareResponse(BaseModel):
@@ -352,7 +352,7 @@ async def share_file(request: FileShareRequest):
             raise HTTPException(status_code=403, detail="Only file owner can share")
         
         # Get recipient user
-        recipient = db.get_user_by_username(request.recipient_username)
+        recipient = db.get_user_by_id(request.recipient_id)
         if not recipient:
             raise HTTPException(status_code=404, detail="Recipient user not found")
         

@@ -240,7 +240,10 @@
                   class="form-input-sm"
                   placeholder="User ID"
                 />
-                <button onclick="loadUserFiles()" class="btn-sm btn-primary">
+                <button
+                  onclick="loadUserFiles(document.getElementById('viewFilesUserId').value)"
+                  class="btn-sm btn-primary"
+                >
                   Load Files
                 </button>
               </div>
