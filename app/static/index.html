@@ -345,8 +345,21 @@
               </button>
             </div>
             <div class="card-body">
-              <div id="blockchainStatus" class="blockchain-status"></div>
-              <div id="blockchainBlocks" class="blockchain-blocks"></div>
+              <div class="blockchain-status">
+                <div class="status-card">
+                  <div class="status-value" id="totalBlocks">0</div>
+                  <div class="status-label">Total Blocks</div>
+                </div>
+                <div class="status-card">
+                  <div class="status-value" id="chainLength">0</div>
+                  <div class="status-label">Chain Length</div>
+                </div>
+                <div class="status-card">
+                  <div class="status-value" id="chainValid">Unknown</div>
+                  <div class="status-label">Status</div>
+                </div>
+              </div>
+              <div id="blocksList" class="blockchain-blocks"></div>
             </div>
           </div>
         </section>
