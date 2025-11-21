@@ -38,6 +38,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Error handling middleware
+@app.middleware("http")
+async def log_requests(request, call_next):
+    logger.info(f"Incoming request: {request.method} {request.url}")
+    try:
+        response = await call_next(request)
+        logger.info(f"Response status: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"Unhandled exception in {request.method} {request.url}: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal server error: {str(e)}"}
+        )
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -139,20 +157,32 @@ async def register_user(request: UserRegisterRequest):
     SECP256R1 ECC public/private keypair for secure key exchange.
     """
     try:
+        # Check if database is initialized
+        if db is None:
+            logger.error("Database not initialized - startup may have failed")
+            raise HTTPException(status_code=503, detail="Service not ready - database not initialized")
+        
+        logger.info(f"Registration attempt for username: {request.username}")
+        
         # Check if username already exists
         existing_user = db.get_user_by_username(request.username)
         if existing_user:
+            logger.warning(f"Username already exists: {request.username}")
             raise HTTPException(status_code=400, detail="Username already exists")
         
         # Generate ECC keypair
+        logger.info("Generating ECC keypair")
         keypair = generate_ecc_keypair()
         
         # Save user to database
+        logger.info(f"Saving user to database: {request.username}")
         user_id = db.create_user(
             username=request.username,
             public_key=keypair['public_key'],
             private_key=keypair['private_key']
         )
+        
+        logger.info(f"User registered successfully: {request.username} (ID: {user_id})")
         
         return UserRegisterResponse(
             user_id=user_id,
@@ -164,6 +194,10 @@ async def register_user(request: UserRegisterRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Registration failed for {request.username}: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
