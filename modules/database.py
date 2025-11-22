@@ -117,6 +117,7 @@ class Database:
         """
         Create database tables if they don't exist.
         Compatible with both PostgreSQL and SQLite.
+        Auto-migrates old schemas by adding missing columns.
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -133,6 +134,22 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
+                
+                # Auto-migration: Add password_hash if it doesn't exist
+                try:
+                    cursor.execute("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='users' AND column_name='password_hash'
+                    """)
+                    if not cursor.fetchone():
+                        print("🔧 Auto-migration: Adding password_hash column to users table...")
+                        cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT 'MIGRATION_REQUIRED'")
+                        cursor.execute("ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL")
+                        print("✅ Migration complete: password_hash column added")
+                except Exception as e:
+                    # Column might already exist or other schema issue
+                    pass
 
                 self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS files (
