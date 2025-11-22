@@ -20,7 +20,7 @@ def print_section(title):
 def test_complete_workflow():
     """Run comprehensive tests on all SecureCloudX features."""
     
-    print("\n🚀 SecureCloudX - Comprehensive System Test")
+    print("\n SecureCloudX - Comprehensive System Test")
     print("="*60)
     
     try:
@@ -177,7 +177,7 @@ def test_complete_workflow():
             print(f"    Block {block['index']}: {list(block['data'].keys())}")
         
         # Final Summary
-        print_section("✅ All Tests Completed Successfully!")
+        print_section(" All Tests Completed Successfully!")
         print("\nTest Summary:")
         print("  ✓ User Registration")
         print("  ✓ ECC Keypair Generation")
@@ -191,13 +191,13 @@ def test_complete_workflow():
         return True
         
     except requests.exceptions.ConnectionError:
-        print("\n❌ Error: Cannot connect to SecureCloudX server")
+        print("\n Error: Cannot connect to SecureCloudX server")
         print("   Make sure the server is running on http://localhost:8000")
         print("   Run: uvicorn app.main:app --host 0.0.0.0 --port 8000")
         return False
         
     except Exception as e:
-        print(f"\n❌ Test Failed: {str(e)}")
+        print(f"\n Test Failed: {str(e)}")
         import traceback
         traceback.print_exc()
         return False

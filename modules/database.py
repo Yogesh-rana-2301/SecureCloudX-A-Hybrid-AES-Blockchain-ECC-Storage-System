@@ -143,10 +143,10 @@ class Database:
                         WHERE table_name='users' AND column_name='password_hash'
                     """)
                     if not cursor.fetchone():
-                        print("🔧 Auto-migration: Adding password_hash column to users table...")
+                        print(" Auto-migration: Adding password_hash column to users table...")
                         cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT 'MIGRATION_REQUIRED'")
                         cursor.execute("ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL")
-                        print("✅ Migration complete: password_hash column added")
+                        print(" Migration complete: password_hash column added")
                 except Exception as e:
                     # Column might already exist or other schema issue
                     pass
