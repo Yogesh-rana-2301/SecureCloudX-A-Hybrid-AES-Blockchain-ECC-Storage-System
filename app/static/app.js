@@ -6,6 +6,18 @@ const API_BASE =
 
 // Global state
 let currentUserId = null;
+let authToken = null;
+
+// Helper function to get auth headers
+function getAuthHeaders() {
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  return headers;
+}
 
 // Utility Functions
 function showResult(elementId, message, isSuccess) {
@@ -19,7 +31,10 @@ function showResult(elementId, message, isSuccess) {
 }
 
 function formatTimestamp(timestamp) {
-  return new Date(timestamp * 1000).toLocaleString();
+  if (!timestamp) return "N/A";
+  // Handle both seconds and milliseconds
+  const date = new Date(timestamp > 10000000000 ? timestamp : timestamp * 1000);
+  return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleString();
 }
 
 function formatFileSize(bytes) {
@@ -31,9 +46,15 @@ function formatFileSize(bytes) {
 // User Management
 async function registerUser() {
   const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
 
   if (!username) {
     showResult("registerResult", "Please enter a username", false);
+    return;
+  }
+
+  if (!password) {
+    showResult("registerResult", "Please enter a password", false);
     return;
   }
 
@@ -43,7 +64,7 @@ async function registerUser() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ username, password }),
     });
 
     const data = await response.json();
@@ -106,15 +127,78 @@ async function loadUsers() {
   }
 }
 
-function selectUser(userId, username) {
-  currentUserId = userId;
-  document.getElementById(
-    "selectedUserId"
-  ).textContent = `Selected: ${username} (ID: ${userId})`;
-  document.getElementById("uploadUserId").value = userId;
-  document.getElementById("viewFilesUserId").value = userId;
-  document.getElementById("senderUserId").value = userId;
-  loadUserFiles(userId);
+async function selectUser(userId, username) {
+  try {
+    // Call login API to get authentication token
+    const response = await fetch(`${API_BASE}/api/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Login failed");
+    }
+
+    const data = await response.json();
+
+    currentUserId = userId;
+    authToken = data.token;
+
+    // Store in localStorage for persistence
+    localStorage.setItem("currentUserId", userId);
+    localStorage.setItem("currentUsername", username);
+    localStorage.setItem("authToken", authToken);
+
+    // Update UI
+    document.getElementById(
+      "selectedUserId"
+    ).textContent = `Selected: ${username} (ID: ${userId})`;
+    document.getElementById("uploadUserId").value = userId;
+    document.getElementById("viewFilesUserId").value = userId;
+    document.getElementById("senderUserId").value = userId;
+
+    // Show user session in header
+    document.getElementById("loggedInUser").textContent = `👤 ${username}`;
+    document.getElementById("userSession").style.display = "flex";
+
+    showResult("registerResult", `Logged in as ${username}`, true);
+    loadUserFiles(userId);
+  } catch (error) {
+    showResult("registerResult", "Login failed: " + error.message, false);
+  }
+}
+
+async function logoutUser() {
+  try {
+    // Call logout API
+    if (authToken) {
+      await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+    }
+  } catch (error) {
+    console.error("Logout error:", error);
+  }
+
+  currentUserId = null;
+  authToken = null;
+  localStorage.removeItem("currentUserId");
+  localStorage.removeItem("currentUsername");
+  localStorage.removeItem("authToken");
+
+  document.getElementById("selectedUserId").textContent = "No user selected";
+  document.getElementById("uploadUserId").value = "";
+  document.getElementById("viewFilesUserId").value = "";
+  document.getElementById("senderUserId").value = "";
+  document.getElementById("userSession").style.display = "none";
+  document.getElementById("loginBtn").style.display = "block";
+  document.getElementById("filesList").innerHTML = "";
+
+  showResult("registerResult", "Logged out successfully", true);
 }
 
 // File Management
@@ -128,6 +212,11 @@ async function uploadFile() {
     return;
   }
 
+  if (!authToken) {
+    showResult("uploadResult", "Please log in first", false);
+    return;
+  }
+
   const formData = new FormData();
   formData.append("owner_id", userId);
   formData.append("file", file);
@@ -135,6 +224,9 @@ async function uploadFile() {
   try {
     const response = await fetch(`${API_BASE}/upload`, {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
       body: formData,
     });
 
@@ -176,8 +268,15 @@ function updateFileName() {
 async function loadUserFiles(userId) {
   if (!userId) return;
 
+  if (!authToken) {
+    showResult("viewResult", "Please log in first", false);
+    return;
+  }
+
   try {
-    const response = await fetch(`${API_BASE}/files/${userId}`);
+    const response = await fetch(`${API_BASE}/files/${userId}`, {
+      headers: getAuthHeaders(),
+    });
     const data = await response.json();
 
     const filesList = document.getElementById("filesList");
@@ -253,15 +352,25 @@ async function loadUserFiles(userId) {
 }
 
 async function downloadFile(fileId, filename, userId) {
-  if (!userId) {
-    alert("Please select a user first");
+  // Use the provided userId or fall back to currentUserId
+  const downloadUserId = userId || currentUserId;
+
+  if (!downloadUserId) {
+    alert("Please select a user first (click on a user from the list)");
+    return;
+  }
+
+  if (!authToken) {
+    alert("Please log in first");
     return;
   }
 
   try {
-    const response = await fetch(
-      `${API_BASE}/download/${fileId}?user_id=${userId}`
-    );
+    const response = await fetch(`${API_BASE}/download/${fileId}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
 
     if (response.ok) {
       const blob = await response.blob();
@@ -295,12 +404,15 @@ async function shareFile() {
     return;
   }
 
+  if (!authToken) {
+    showResult("shareResult", "Please log in first", false);
+    return;
+  }
+
   try {
     const response = await fetch(`${API_BASE}/share`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         file_id: parseInt(fileId),
         owner_id: parseInt(senderId),
@@ -432,6 +544,26 @@ async function checkHealth() {
 
 // Initialize
 document.addEventListener("DOMContentLoaded", async () => {
+  // Restore user session if exists
+  const savedUserId = localStorage.getItem("currentUserId");
+  const savedUsername = localStorage.getItem("currentUsername");
+  const savedToken = localStorage.getItem("authToken");
+
+  if (savedUserId && savedUsername && savedToken) {
+    currentUserId = parseInt(savedUserId);
+    authToken = savedToken;
+    document.getElementById("loggedInUser").textContent = `👤 ${savedUsername}`;
+    document.getElementById("userSession").style.display = "flex";
+    document.getElementById("loginBtn").style.display = "none";
+    document.getElementById(
+      "selectedUserId"
+    ).textContent = `Selected: ${savedUsername} (ID: ${savedUserId})`;
+    document.getElementById("uploadUserId").value = savedUserId;
+    document.getElementById("viewFilesUserId").value = savedUserId;
+    document.getElementById("senderUserId").value = savedUserId;
+    await loadUserFiles(savedUserId);
+  }
+
   // Check API health
   await checkHealth();
 
@@ -468,3 +600,87 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadBlockchain();
   }, 30000); // Every 30 seconds
 });
+
+// Login Modal Functions
+async function showLoginModal() {
+  const modal = document.getElementById("loginModal");
+  modal.style.display = "flex";
+
+  // Clear login form
+  document.getElementById("loginForm").reset();
+  document.getElementById("loginResult").textContent = "";
+  document.getElementById("loginResult").className = "result";
+}
+
+function closeLoginModal() {
+  document.getElementById("loginModal").style.display = "none";
+  document.getElementById("loginForm").reset();
+}
+
+async function loginUser(event) {
+  event.preventDefault();
+
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+
+  if (!username || !password) {
+    showResult("loginResult", "Please enter username and password", false);
+    return;
+  }
+
+  try {
+    // Call login API to get authentication token
+    const response = await fetch(`${API_BASE}/api/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "Login failed");
+    }
+
+    currentUserId = data.user_id;
+    authToken = data.token;
+
+    // Store in localStorage for persistence
+    localStorage.setItem("currentUserId", data.user_id);
+    localStorage.setItem("currentUsername", data.username);
+    localStorage.setItem("authToken", authToken);
+
+    // Update UI
+    document.getElementById("loggedInUser").textContent = `👤 ${data.username}`;
+    document.getElementById("userSession").style.display = "flex";
+    document.getElementById("loginBtn").style.display = "none";
+    document.getElementById(
+      "selectedUserId"
+    ).textContent = `Selected: ${data.username} (ID: ${data.user_id})`;
+    document.getElementById("uploadUserId").value = data.user_id;
+    document.getElementById("viewFilesUserId").value = data.user_id;
+    document.getElementById("senderUserId").value = data.user_id;
+
+    // Close modal and load user files
+    closeLoginModal();
+    showResult("loginResult", `Logged in as ${data.username}`, true);
+    await loadUserFiles(data.user_id);
+
+    // Scroll to files section
+    document.getElementById("files").scrollIntoView({ behavior: "smooth" });
+  } catch (error) {
+    showResult("loginResult", "Login failed: " + error.message, false);
+  }
+}
+
+// Close modal when clicking outside
+window.onclick = function (event) {
+  const modal = document.getElementById("loginModal");
+  if (event.target === modal) {
+    closeLoginModal();
+  }
+};
+
+// Filter users in login modal

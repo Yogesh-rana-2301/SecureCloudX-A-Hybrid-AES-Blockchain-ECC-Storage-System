@@ -22,6 +22,18 @@
           <a href="#files" class="nav-link">Files</a>
           <a href="#blockchain" class="nav-link">Blockchain</a>
           <a href="/docs" target="_blank" class="nav-link">API Docs</a>
+          <div id="userSession" class="user-session" style="display: none">
+            <span id="loggedInUser"></span>
+            <button onclick="logoutUser()" class="btn-logout">Logout</button>
+          </div>
+          <button
+            id="loginBtn"
+            onclick="showLoginModal()"
+            class="btn-primary"
+            style="margin-left: 1rem"
+          >
+            Login
+          </button>
         </nav>
       </div>
     </header>
@@ -119,6 +131,16 @@
                     id="username"
                     class="form-input"
                     placeholder="Enter username"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="password" class="form-label">Password</label>
+                  <input
+                    type="password"
+                    id="password"
+                    class="form-input"
+                    placeholder="Enter password"
                     required
                   />
                 </div>
@@ -388,6 +410,46 @@
         </div>
       </div>
     </footer>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Login to SecureCloudX</h2>
+          <button onclick="closeLoginModal()" class="modal-close">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="loginForm" class="form" onsubmit="loginUser(event)">
+            <div class="form-group">
+              <label for="loginUsername" class="form-label">Username</label>
+              <input
+                type="text"
+                id="loginUsername"
+                class="form-input"
+                placeholder="Enter username"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="loginPassword" class="form-label">Password</label>
+              <input
+                type="password"
+                id="loginPassword"
+                class="form-input"
+                placeholder="Enter password"
+                required
+              />
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%">
+              Login
+            </button>
+          </form>
+          <div class="result" id="loginResult"></div>
+        </div>
+      </div>
+    </div>
 
     <script src="/static/app.js"></script>
   </body>
