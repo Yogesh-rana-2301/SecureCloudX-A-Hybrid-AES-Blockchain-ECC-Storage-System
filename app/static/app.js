@@ -22,6 +22,10 @@ function getAuthHeaders() {
 // Utility Functions
 function showResult(elementId, message, isSuccess) {
   const resultEl = document.getElementById(elementId);
+  if (!resultEl) {
+    console.warn(`Element with ID '${elementId}' not found`);
+    return;
+  }
   resultEl.textContent = message;
   resultEl.className = `result show ${isSuccess ? "success" : "error"}`;
 
@@ -152,17 +156,18 @@ async function selectUser(userId, username) {
     localStorage.setItem("currentUsername", username);
     localStorage.setItem("authToken", authToken);
 
-    // Update UI
-    document.getElementById(
-      "selectedUserId"
-    ).textContent = `Selected: ${username} (ID: ${userId})`;
-    document.getElementById("uploadUserId").value = userId;
-    document.getElementById("viewFilesUserId").value = userId;
-    document.getElementById("senderUserId").value = userId;
+    // Update UI - safely update elements that exist
+    const uploadUserIdEl = document.getElementById("uploadUserId");
+    const viewFilesUserIdEl = document.getElementById("viewFilesUserId");
+    const senderUserIdEl = document.getElementById("senderUserId");
+    const loggedInUserEl = document.getElementById("loggedInUser");
+    const userSessionEl = document.getElementById("userSession");
 
-    // Show user session in header
-    document.getElementById("loggedInUser").textContent = `👤 ${username}`;
-    document.getElementById("userSession").style.display = "flex";
+    if (uploadUserIdEl) uploadUserIdEl.value = userId;
+    if (viewFilesUserIdEl) viewFilesUserIdEl.value = userId;
+    if (senderUserIdEl) senderUserIdEl.value = userId;
+    if (loggedInUserEl) loggedInUserEl.textContent = `👤 ${username}`;
+    if (userSessionEl) userSessionEl.style.display = "flex";
 
     showResult("registerResult", `Logged in as ${username}`, true);
     loadUserFiles(userId);
@@ -190,13 +195,20 @@ async function logoutUser() {
   localStorage.removeItem("currentUsername");
   localStorage.removeItem("authToken");
 
-  document.getElementById("selectedUserId").textContent = "No user selected";
-  document.getElementById("uploadUserId").value = "";
-  document.getElementById("viewFilesUserId").value = "";
-  document.getElementById("senderUserId").value = "";
-  document.getElementById("userSession").style.display = "none";
-  document.getElementById("loginBtn").style.display = "block";
-  document.getElementById("filesList").innerHTML = "";
+  // Safely clear UI elements
+  const uploadUserIdEl = document.getElementById("uploadUserId");
+  const viewFilesUserIdEl = document.getElementById("viewFilesUserId");
+  const senderUserIdEl = document.getElementById("senderUserId");
+  const userSessionEl = document.getElementById("userSession");
+  const loginBtnEl = document.getElementById("loginBtn");
+  const filesListEl = document.getElementById("filesList");
+
+  if (uploadUserIdEl) uploadUserIdEl.value = "";
+  if (viewFilesUserIdEl) viewFilesUserIdEl.value = "";
+  if (senderUserIdEl) senderUserIdEl.value = "";
+  if (userSessionEl) userSessionEl.style.display = "none";
+  if (loginBtnEl) loginBtnEl.style.display = "block";
+  if (filesListEl) filesListEl.innerHTML = "";
 
   showResult("registerResult", "Logged out successfully", true);
 }
@@ -269,7 +281,7 @@ async function loadUserFiles(userId) {
   if (!userId) return;
 
   if (!authToken) {
-    showResult("viewResult", "Please log in first", false);
+    console.warn("No auth token available");
     return;
   }
 
@@ -552,15 +564,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (savedUserId && savedUsername && savedToken) {
     currentUserId = parseInt(savedUserId);
     authToken = savedToken;
-    document.getElementById("loggedInUser").textContent = `👤 ${savedUsername}`;
-    document.getElementById("userSession").style.display = "flex";
-    document.getElementById("loginBtn").style.display = "none";
-    document.getElementById(
-      "selectedUserId"
-    ).textContent = `Selected: ${savedUsername} (ID: ${savedUserId})`;
-    document.getElementById("uploadUserId").value = savedUserId;
-    document.getElementById("viewFilesUserId").value = savedUserId;
-    document.getElementById("senderUserId").value = savedUserId;
+
+    // Safely update UI elements
+    const loggedInUserEl = document.getElementById("loggedInUser");
+    const userSessionEl = document.getElementById("userSession");
+    const loginBtnEl = document.getElementById("loginBtn");
+    const uploadUserIdEl = document.getElementById("uploadUserId");
+    const viewFilesUserIdEl = document.getElementById("viewFilesUserId");
+    const senderUserIdEl = document.getElementById("senderUserId");
+
+    if (loggedInUserEl) loggedInUserEl.textContent = `👤 ${savedUsername}`;
+    if (userSessionEl) userSessionEl.style.display = "flex";
+    if (loginBtnEl) loginBtnEl.style.display = "none";
+    if (uploadUserIdEl) uploadUserIdEl.value = savedUserId;
+    if (viewFilesUserIdEl) viewFilesUserIdEl.value = savedUserId;
+    if (senderUserIdEl) senderUserIdEl.value = savedUserId;
+
     await loadUserFiles(savedUserId);
   }
 
@@ -652,16 +671,20 @@ async function loginUser(event) {
     localStorage.setItem("currentUsername", data.username);
     localStorage.setItem("authToken", authToken);
 
-    // Update UI
-    document.getElementById("loggedInUser").textContent = `👤 ${data.username}`;
-    document.getElementById("userSession").style.display = "flex";
-    document.getElementById("loginBtn").style.display = "none";
-    document.getElementById(
-      "selectedUserId"
-    ).textContent = `Selected: ${data.username} (ID: ${data.user_id})`;
-    document.getElementById("uploadUserId").value = data.user_id;
-    document.getElementById("viewFilesUserId").value = data.user_id;
-    document.getElementById("senderUserId").value = data.user_id;
+    // Update UI - safely update elements that exist
+    const loggedInUserEl = document.getElementById("loggedInUser");
+    const userSessionEl = document.getElementById("userSession");
+    const loginBtnEl = document.getElementById("loginBtn");
+    const uploadUserIdEl = document.getElementById("uploadUserId");
+    const viewFilesUserIdEl = document.getElementById("viewFilesUserId");
+    const senderUserIdEl = document.getElementById("senderUserId");
+
+    if (loggedInUserEl) loggedInUserEl.textContent = `👤 ${data.username}`;
+    if (userSessionEl) userSessionEl.style.display = "flex";
+    if (loginBtnEl) loginBtnEl.style.display = "none";
+    if (uploadUserIdEl) uploadUserIdEl.value = data.user_id;
+    if (viewFilesUserIdEl) viewFilesUserIdEl.value = data.user_id;
+    if (senderUserIdEl) senderUserIdEl.value = data.user_id;
 
     // Close modal and load user files
     closeLoginModal();
