@@ -90,8 +90,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
     
-    # Check expiration
-    expires_at = datetime.fromisoformat(session["expires_at"])
+    # Check expiration - handle both string (SQLite) and datetime (PostgreSQL)
+    expires_at = session["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    
     if datetime.now() > expires_at:
         db.delete_session(token)
         raise HTTPException(status_code=401, detail="Session expired")
