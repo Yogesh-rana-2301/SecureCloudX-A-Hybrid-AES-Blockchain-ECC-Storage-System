@@ -98,6 +98,7 @@ class Database:
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         username TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
                         ecc_public_key TEXT NOT NULL,
                         ecc_private_key TEXT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -142,6 +143,18 @@ class Database:
                         previous_hash TEXT NOT NULL,
                         block_hash TEXT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                
+                # Session storage table for authentication
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS user_sessions (
+                        id SERIAL PRIMARY KEY,
+                        token TEXT NOT NULL UNIQUE,
+                        user_id INTEGER NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        expires_at TIMESTAMP NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users (id)
                     )
                 ''')
             else:
@@ -150,6 +163,7 @@ class Database:
                     CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         username TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
                         ecc_public_key TEXT NOT NULL,
                         ecc_private_key TEXT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -196,15 +210,28 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
+                
+                # Session storage table for authentication
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS user_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        token TEXT NOT NULL UNIQUE,
+                        user_id INTEGER NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        expires_at TIMESTAMP NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users (id)
+                    )
+                ''')
     
     # User operations
     
-    def create_user(self, username: str, public_key: str, private_key: str) -> int:
+    def create_user(self, username: str, password_hash: str, public_key: str, private_key: str) -> int:
         """
         Create a new user in the database.
         
         Args:
             username: Unique username
+            password_hash: Bcrypt hashed password
             public_key: ECC public key in PEM format
             private_key: ECC private key in PEM format
             
@@ -216,10 +243,10 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            placeholders = self._get_placeholder(3)
+            placeholders = self._get_placeholder(4)
             cursor.execute(
-                f'INSERT INTO users (username, ecc_public_key, ecc_private_key) VALUES ({placeholders})',
-                (username, public_key, private_key)
+                f'INSERT INTO users (username, password_hash, ecc_public_key, ecc_private_key) VALUES ({placeholders})',
+                (username, password_hash, public_key, private_key)
             )
             if self.is_postgres:
                 cursor.execute('SELECT lastval()')
@@ -436,7 +463,7 @@ class Database:
     def save_blockchain_block(self, block_index: int, timestamp: float, data: dict, 
                               previous_hash: str, block_hash: str) -> int:
         """
-        Save a blockchain block to the database.
+        Save a blockchain block to the database using UPSERT to avoid duplicates.
         
         Args:
             block_index: Block index in the chain
@@ -451,18 +478,39 @@ class Database:
         import json
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            placeholders = self._get_placeholder(5)
-            cursor.execute(
-                f'''INSERT INTO blockchain_blocks 
-                   (block_index, block_timestamp, block_data, previous_hash, block_hash) 
-                   VALUES ({placeholders})''',
-                (block_index, timestamp, json.dumps(data), previous_hash, block_hash)
-            )
+            
             if self.is_postgres:
-                cursor.execute('SELECT lastval()')
+                # PostgreSQL UPSERT - update if exists, insert if not
+                cursor.execute(
+                    '''INSERT INTO blockchain_blocks 
+                       (block_index, block_timestamp, block_data, previous_hash, block_hash) 
+                       VALUES (%s, %s, %s, %s, %s)
+                       ON CONFLICT (block_index) 
+                       DO UPDATE SET 
+                           block_timestamp = EXCLUDED.block_timestamp,
+                           block_data = EXCLUDED.block_data,
+                           previous_hash = EXCLUDED.previous_hash,
+                           block_hash = EXCLUDED.block_hash
+                       RETURNING id''',
+                    (block_index, timestamp, json.dumps(data), previous_hash, block_hash)
+                )
                 result = cursor.fetchone()
-                return result['lastval'] if isinstance(result, dict) else result[0]
-            return cursor.lastrowid
+                return result['id'] if isinstance(result, dict) else result[0]
+            else:
+                # SQLite UPSERT
+                cursor.execute(
+                    '''INSERT INTO blockchain_blocks 
+                       (block_index, block_timestamp, block_data, previous_hash, block_hash) 
+                       VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(block_index) 
+                       DO UPDATE SET 
+                           block_timestamp = excluded.block_timestamp,
+                           block_data = excluded.block_data,
+                           previous_hash = excluded.previous_hash,
+                           block_hash = excluded.block_hash''',
+                    (block_index, timestamp, json.dumps(data), previous_hash, block_hash)
+                )
+                return cursor.lastrowid
     
     def load_blockchain_blocks(self) -> List[Dict]:
         """
@@ -493,3 +541,77 @@ class Database:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM blockchain_blocks')
+    
+    # Session management operations
+    
+    def create_session(self, token: str, user_id: int, expires_at: str) -> int:
+        """
+        Create a new user session.
+        
+        Args:
+            token: Session token
+            user_id: User ID
+            expires_at: Expiration timestamp (ISO format string)
+            
+        Returns:
+            int: Session ID
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholders = self._get_placeholder(3)
+            cursor.execute(
+                f'INSERT INTO user_sessions (token, user_id, expires_at) VALUES ({placeholders})',
+                (token, user_id, expires_at)
+            )
+            if self.is_postgres:
+                cursor.execute('SELECT lastval()')
+                result = cursor.fetchone()
+                return result['lastval'] if isinstance(result, dict) else result[0]
+            return cursor.lastrowid
+    
+    def get_session(self, token: str) -> Optional[Dict]:
+        """
+        Retrieve session by token.
+        
+        Args:
+            token: Session token
+            
+        Returns:
+            dict or None: Session data if found
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholder = self._get_placeholder()
+            cursor.execute(
+                f'SELECT * FROM user_sessions WHERE token = {placeholder}',
+                (token,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def delete_session(self, token: str):
+        """
+        Delete a session by token.
+        
+        Args:
+            token: Session token to delete
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            placeholder = self._get_placeholder()
+            cursor.execute(
+                f'DELETE FROM user_sessions WHERE token = {placeholder}',
+                (token,)
+            )
+    
+    def cleanup_expired_sessions(self):
+        """
+        Delete all expired sessions from database.
+        Should be called periodically.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'DELETE FROM user_sessions WHERE expires_at < CURRENT_TIMESTAMP'
+            )
+

@@ -3,16 +3,20 @@ SecureCloudX - FastAPI Application
 Main application file with REST API endpoints for secure cloud storage.
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Header, Depends
 from fastapi.responses import Response, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
 import base64
 import os
 import sys
 import logging
+import secrets
+import bcrypt
+from datetime import datetime, timedelta
 
 # Configure logging
 logging.basicConfig(
@@ -68,6 +72,32 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
+# Authentication setup
+security = HTTPBearer()
+
+def create_session_token(user_id: str) -> str:
+    """Create a secure session token and store in database"""
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.now() + timedelta(hours=24)).isoformat()
+    db.create_session(token, int(user_id), expires_at)
+    return token
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """Verify token from database and return user_id"""
+    token = credentials.credentials
+    session = db.get_session(token)
+    
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
+    # Check expiration
+    expires_at = datetime.fromisoformat(session["expires_at"])
+    if datetime.now() > expires_at:
+        db.delete_session(token)
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    return str(session["user_id"])
+
 # Initialize blockchain and database
 blockchain = None
 db = None
@@ -87,6 +117,10 @@ async def startup_event():
         logger.info(f"Initializing blockchain with database persistence (fallback: {chain_path})")
         blockchain = Blockchain(chain_path, db=db)
         logger.info(f"✅ Blockchain initialized with {len(blockchain.chain)} blocks")
+        
+        # Clean up expired sessions on startup
+        logger.info("Cleaning up expired sessions")
+        db.cleanup_expired_sessions()
         
     except Exception as e:
         logger.error(f"❌ Startup error: {e}")
@@ -113,6 +147,7 @@ async def health_check():
 # Pydantic models for request/response
 class UserRegisterRequest(BaseModel):
     username: str
+    password: str
 
 
 class UserRegisterResponse(BaseModel):
@@ -141,7 +176,56 @@ class FileShareResponse(BaseModel):
     message: str
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    user_id: int
+    username: str
+    message: str
+
+
 # API Endpoints
+
+@app.post("/api/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    """Authenticate user with username/password and create session token"""
+    logger.info(f"Login attempt for username: {request.username}")
+    
+    # Verify user exists
+    user = db.get_user_by_username(request.username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Verify password
+    logger.info("Verifying password")
+    password_hash = user['password_hash'].encode('utf-8')
+    if not bcrypt.checkpw(request.password.encode('utf-8'), password_hash):
+        logger.warning(f"Invalid password for user: {request.username}")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Create session token
+    token = create_session_token(str(user['id']))
+    
+    logger.info(f"Login successful for user: {user['username']}")
+    return LoginResponse(
+        token=token,
+        user_id=user['id'],
+        username=user['username'],
+        message="Login successful"
+    )
+
+
+@app.post("/api/logout")
+async def logout(current_user: str = Depends(get_current_user), credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Logout user and invalidate session token"""
+    token = credentials.credentials
+    db.delete_session(token)
+    return {"message": "Logout successful"}
+
 
 @app.get("/")
 async def root():
@@ -172,6 +256,10 @@ async def register_user(request: UserRegisterRequest):
             logger.warning(f"Username already exists: {request.username}")
             raise HTTPException(status_code=400, detail="Username already exists")
         
+        # Hash password
+        logger.info("Hashing password")
+        password_hash = bcrypt.hashpw(request.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
         # Generate ECC keypair
         logger.info("Generating ECC keypair")
         keypair = generate_ecc_keypair()
@@ -180,6 +268,7 @@ async def register_user(request: UserRegisterRequest):
         logger.info(f"Saving user to database: {request.username}")
         user_id = db.create_user(
             username=request.username,
+            password_hash=password_hash,
             public_key=keypair['public_key'],
             private_key=keypair['private_key']
         )
@@ -206,19 +295,25 @@ async def register_user(request: UserRegisterRequest):
 @app.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    owner_id: int = Form(...)
+    owner_id: int = Form(...),
+    current_user: str = Depends(get_current_user)
 ):
     """
     Upload and encrypt a file with dynamic AES-256 encryption.
     
     Process:
-    1. Generate unique AES-256 key
-    2. Encrypt file with AES CBC mode
-    3. Store encrypted file
-    4. Add AES key to blockchain
-    5. Save metadata to database
+    1. Verify user authentication
+    2. Generate unique AES-256 key
+    3. Encrypt file with AES CBC mode
+    4. Store encrypted file
+    5. Add AES key to blockchain
+    6. Save metadata to database
     """
     try:
+        # Verify user is uploading their own file
+        if str(owner_id) != current_user:
+            raise HTTPException(status_code=403, detail="Cannot upload files for other users")
+        
         # Verify user exists
         user = db.get_user_by_id(owner_id)
         if not user:
@@ -277,14 +372,20 @@ async def upload_file(
 
 
 @app.get("/download/{file_id}")
-async def download_file(file_id: int, user_id: int):
+async def download_file(
+    file_id: int,
+    current_user: str = Depends(get_current_user)
+):
     """
     Download and decrypt a file.
     
     Retrieves file from database, fetches AES key from blockchain,
     decrypts the file, and returns it to the user.
+    Requires authentication and proper access permissions.
     """
     try:
+        user_id = int(current_user)
+        
         # Get file metadata
         file_record = db.get_file_by_id(file_id)
         if not file_record:
@@ -333,18 +434,26 @@ async def download_file(file_id: int, user_id: int):
 
 
 @app.post("/share", response_model=FileShareResponse)
-async def share_file(request: FileShareRequest):
+async def share_file(
+    request: FileShareRequest,
+    current_user: str = Depends(get_current_user)
+):
     """
     Share a file with another user using ECC encryption.
     
     Process:
-    1. Retrieve original AES key from blockchain
-    2. Get recipient's ECC public key
-    3. Encrypt AES key with recipient's public key
-    4. Add encrypted key to blockchain
-    5. Create share record in database
+    1. Verify user authentication and ownership
+    2. Retrieve original AES key from blockchain
+    3. Get recipient's ECC public key
+    4. Encrypt AES key with recipient's public key
+    5. Add encrypted key to blockchain
+    6. Create share record in database
     """
     try:
+        # Verify user is sharing their own file
+        if str(request.owner_id) != current_user:
+            raise HTTPException(status_code=403, detail="Cannot share other users' files")
+        
         # Verify file exists and requester is owner
         file_record = db.get_file_by_id(request.file_id)
         if not file_record:
@@ -461,13 +570,21 @@ async def get_users():
 
 
 @app.get("/files/{user_id}")
-async def get_user_files(user_id: int):
+async def get_user_files(
+    user_id: int,
+    current_user: str = Depends(get_current_user)
+):
     """
-    List all files owned by a specific user.
+    List all files owned by or shared with the authenticated user.
     
-    Returns file metadata for all files belonging to the user.
+    Returns file metadata for all files belonging to the user and shared with them.
+    Users can only view their own files.
     """
     try:
+        # Verify user is requesting their own files
+        if str(user_id) != current_user:
+            raise HTTPException(status_code=403, detail="Cannot view other users' files")
+        
         logger.info(f"Fetching files for user_id: {user_id}")
         
         # Verify user exists
