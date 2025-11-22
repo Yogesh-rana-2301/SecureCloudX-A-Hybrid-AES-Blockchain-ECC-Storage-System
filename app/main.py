@@ -113,7 +113,7 @@ async def startup_event():
         # Initialize database first
         logger.info("Initializing database connection")
         db = Database('securecloudx.db')
-        logger.info(f"✅ Database initialized - Type: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
+        logger.info(f" Database initialized - Type: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
         
         # Initialize blockchain with database persistence
         chain_path = '/tmp/blockchain/chain.json' if os.getenv('RENDER') else 'blockchain/chain.json'
@@ -123,8 +123,8 @@ async def startup_event():
             
             # Check if blockchain is valid after loading
             if len(blockchain.chain) > 0 and not blockchain.validate_chain():
-                logger.warning("⚠️  Loaded blockchain failed validation - likely from previous deployment")
-                logger.warning("🔧 Clearing corrupted blockchain blocks and reinitializing...")
+                logger.warning("  Loaded blockchain failed validation - likely from previous deployment")
+                logger.warning(" Clearing corrupted blockchain blocks and reinitializing...")
                 try:
                     db.clear_blockchain_blocks()
                     # Remove local JSON fallback if it exists
@@ -133,12 +133,12 @@ async def startup_event():
                         logger.info(f"Removed corrupted blockchain file: {chain_path}")
                     # Create fresh blockchain
                     blockchain = Blockchain(chain_path, db=db)
-                    logger.info(f"✅ Blockchain reset complete - {len(blockchain.chain)} blocks (genesis)")
+                    logger.info(f"Blockchain reset complete - {len(blockchain.chain)} blocks (genesis)")
                 except Exception as inner_e:
                     logger.error(f"Failed to reset blockchain: {inner_e}")
                     raise
             else:
-                logger.info(f"✅ Blockchain initialized with {len(blockchain.chain)} blocks, valid: {blockchain.validate_chain()}")
+                logger.info(f"Blockchain initialized with {len(blockchain.chain)} blocks, valid: {blockchain.validate_chain()}")
                 
         except Exception as e:
             logger.error(f"Blockchain initialization error: {e}")
@@ -149,11 +149,11 @@ async def startup_event():
                 logger.info("Attempting blockchain recovery...")
                 db.clear_blockchain_blocks()
                 blockchain = Blockchain(chain_path, db=db)
-                logger.info(f"✅ Blockchain recovered with fresh genesis block")
+                logger.info(f"Blockchain recovered with fresh genesis block")
             except Exception as inner:
-                logger.error(f"❌ Blockchain recovery failed: {inner}")
+                logger.error(f" Blockchain recovery failed: {inner}")
                 # Don't raise - allow app to start without blockchain
-                logger.warning("⚠️  Starting app without blockchain functionality")
+                logger.warning(" Starting app without blockchain functionality")
                 blockchain = None
         
         # Clean up expired sessions on startup
@@ -161,7 +161,7 @@ async def startup_event():
         db.cleanup_expired_sessions()
         
     except Exception as e:
-        logger.error(f"❌ Startup error: {e}")
+        logger.error(f"Startup error: {e}")
         import traceback
         logger.error(traceback.format_exc())
         raise  # Re-raise to prevent app from starting with broken state
