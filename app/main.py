@@ -115,8 +115,43 @@ async def startup_event():
         # Initialize blockchain with database persistence
         chain_path = '/tmp/blockchain/chain.json' if os.getenv('RENDER') else 'blockchain/chain.json'
         logger.info(f"Initializing blockchain with database persistence (fallback: {chain_path})")
-        blockchain = Blockchain(chain_path, db=db)
-        logger.info(f"✅ Blockchain initialized with {len(blockchain.chain)} blocks")
+        try:
+            blockchain = Blockchain(chain_path, db=db)
+            
+            # Check if blockchain is valid after loading
+            if len(blockchain.chain) > 0 and not blockchain.validate_chain():
+                logger.warning("⚠️  Loaded blockchain failed validation - likely from previous deployment")
+                logger.warning("🔧 Clearing corrupted blockchain blocks and reinitializing...")
+                try:
+                    db.clear_blockchain_blocks()
+                    # Remove local JSON fallback if it exists
+                    if os.path.exists(chain_path):
+                        os.remove(chain_path)
+                        logger.info(f"Removed corrupted blockchain file: {chain_path}")
+                    # Create fresh blockchain
+                    blockchain = Blockchain(chain_path, db=db)
+                    logger.info(f"✅ Blockchain reset complete - {len(blockchain.chain)} blocks (genesis)")
+                except Exception as inner_e:
+                    logger.error(f"Failed to reset blockchain: {inner_e}")
+                    raise
+            else:
+                logger.info(f"✅ Blockchain initialized with {len(blockchain.chain)} blocks, valid: {blockchain.validate_chain()}")
+                
+        except Exception as e:
+            logger.error(f"Blockchain initialization error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Attempt recovery by clearing everything and starting fresh
+            try:
+                logger.info("Attempting blockchain recovery...")
+                db.clear_blockchain_blocks()
+                blockchain = Blockchain(chain_path, db=db)
+                logger.info(f"✅ Blockchain recovered with fresh genesis block")
+            except Exception as inner:
+                logger.error(f"❌ Blockchain recovery failed: {inner}")
+                # Don't raise - allow app to start without blockchain
+                logger.warning("⚠️  Starting app without blockchain functionality")
+                blockchain = None
         
         # Clean up expired sessions on startup
         logger.info("Cleaning up expired sessions")

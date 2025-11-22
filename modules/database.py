@@ -57,6 +57,35 @@ class Database:
             return ', '.join(['%s'] * count) if count > 1 else '%s'
         else:
             return ', '.join(['?'] * count) if count > 1 else '?'
+
+    def _safe_execute(self, cursor, sql: str, params: tuple = None):
+        """
+        Execute SQL safely, swallowing duplicate-key races that can happen
+        when multiple worker processes try to create the same objects at once.
+        """
+        try:
+            if params:
+                cursor.execute(sql, params)
+            else:
+                cursor.execute(sql)
+        except Exception as e:
+            # If Postgres unique violation occurred due to race during
+            # concurrent CREATE statements, log and ignore; otherwise re-raise.
+            try:
+                import psycopg2
+                # psycopg2 provides pgcode on DBAPIError instances
+                pgcode = getattr(e, 'pgcode', None)
+                if pgcode == '23505':
+                    # Unique violation - likely a concurrent creation race
+                    return
+            except Exception:
+                pass
+
+            # Fallback textual check for duplicate key errors
+            if 'duplicate key value' in str(e).lower() or 'already exists' in str(e).lower():
+                return
+
+            raise
     
     @contextmanager
     def get_connection(self):
@@ -91,10 +120,10 @@ class Database:
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            
+
             if self.is_postgres:
-                # PostgreSQL syntax
-                cursor.execute('''
+                # PostgreSQL syntax - use _safe_execute to avoid race conditions
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         username TEXT UNIQUE NOT NULL,
@@ -104,8 +133,8 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
-                
-                cursor.execute('''
+
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS files (
                         id SERIAL PRIMARY KEY,
                         owner_id INTEGER NOT NULL,
@@ -118,8 +147,8 @@ class Database:
                         FOREIGN KEY (owner_id) REFERENCES users (id)
                     )
                 ''')
-                
-                cursor.execute('''
+
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS file_shares (
                         id SERIAL PRIMARY KEY,
                         file_id INTEGER NOT NULL,
@@ -133,8 +162,8 @@ class Database:
                         FOREIGN KEY (recipient_id) REFERENCES users (id)
                     )
                 ''')
-                
-                cursor.execute('''
+
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS blockchain_blocks (
                         id SERIAL PRIMARY KEY,
                         block_index INTEGER NOT NULL UNIQUE,
@@ -145,9 +174,9 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 ''')
-                
+
                 # Session storage table for authentication
-                cursor.execute('''
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS user_sessions (
                         id SERIAL PRIMARY KEY,
                         token TEXT NOT NULL UNIQUE,

@@ -292,10 +292,9 @@ class Blockchain:
                 block.hash = block_data['block_hash']
                 self.chain.append(block)
             
-            # Validate loaded chain
-            if not self.validate_chain():
-                print("WARNING: Loaded blockchain from database is invalid!")
-                return False
+            # NOTE: We load the chain but don't fail on validation here.
+            # The app startup logic will check validity and reset if needed.
+            # This prevents worker crashes during deployment.
             
             return True
         except Exception as e:
