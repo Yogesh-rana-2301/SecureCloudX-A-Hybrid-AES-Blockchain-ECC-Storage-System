@@ -81,13 +81,30 @@ def migrate_database():
             for user_id, username in old_users:
                 print(f"   - ID {user_id}: {username}")
             
-            print("\n🗑️  Deleting old users (they can re-register with passwords)...")
+            print("\n🗑️  Deleting old users and their data (they can re-register with passwords)...")
             for user_id, username in old_users:
-                cursor.execute(f"DELETE FROM users WHERE id = {'%s' if db_type == 'PostgreSQL' else '?'}", (user_id,))
-                print(f"   ✓ Deleted user: {username}")
+                # Delete in order to respect foreign key constraints
+                placeholder = '%s' if db_type == 'PostgreSQL' else '?'
+                
+                # 1. Delete file shares where user is recipient
+                cursor.execute(f"DELETE FROM file_shares WHERE recipient_id = {placeholder}", (user_id,))
+                
+                # 2. Delete file shares where user is owner
+                cursor.execute(f"DELETE FROM file_shares WHERE owner_id = {placeholder}", (user_id,))
+                
+                # 3. Delete files owned by user
+                cursor.execute(f"DELETE FROM files WHERE owner_id = {placeholder}", (user_id,))
+                
+                # 4. Delete user sessions
+                cursor.execute(f"DELETE FROM user_sessions WHERE user_id = {placeholder}", (user_id,))
+                
+                # 5. Finally delete the user
+                cursor.execute(f"DELETE FROM users WHERE id = {placeholder}", (user_id,))
+                
+                print(f"   ✓ Deleted user and data: {username}")
             
             conn.commit()
-            print("\n✅ Old users deleted - they need to re-register with passwords")
+            print("\n✅ Old users and their data deleted - they need to re-register with passwords")
         else:
             print("✅ All users have valid passwords")
         
