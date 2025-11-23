@@ -458,32 +458,42 @@ async def download_file(
     """
     try:
         user_id = int(current_user)
+        logger.info(f"Download request: file_id={file_id}, user_id={user_id}")
         
         # Get file metadata
         file_record = db.get_file_by_id(file_id)
         if not file_record:
+            logger.warning(f"File not found: file_id={file_id}")
             raise HTTPException(status_code=404, detail="File not found")
+        
+        logger.info(f"File found: {file_record['filename']}, owner_id={file_record['owner_id']}")
         
         # Check if user is the owner
         if file_record['owner_id'] != user_id:
+            logger.info(f"User {user_id} is not owner, checking share permissions...")
             # Check if file was shared with this user
             share = db.get_file_share(file_id, user_id)
             if not share:
+                logger.warning(f"Access denied: file_id={file_id}, user_id={user_id}")
                 raise HTTPException(status_code=403, detail="Access denied")
             
+            logger.info(f"Share found, decrypting AES key with recipient's ECC private key")
             # Get recipient's private key to decrypt AES key
             user = db.get_user_by_id(user_id)
             encrypted_aes_key = share['encrypted_aes_key']
             aes_key = decrypt_aes_key_with_ecc(encrypted_aes_key, user['ecc_private_key'])
         else:
+            logger.info(f"User {user_id} is owner, getting AES key from blockchain block {file_record['block_index']}")
             # Owner accessing their own file - get AES key from blockchain
             block = blockchain.get_block_by_index(file_record['block_index'])
             if not block:
+                logger.error(f"Blockchain block not found: index={file_record['block_index']}")
                 raise HTTPException(status_code=500, detail="Blockchain block not found")
             
             aes_key_b64 = block.data['aes_key']
             aes_key = base64.b64decode(aes_key_b64)
         
+        logger.info(f"Decrypting file: {file_record['filename']}")
         # Decrypt file
         decrypted_content = decrypt_file(
             encrypted_data=file_record['encrypted_data'],
@@ -491,6 +501,7 @@ async def download_file(
             iv=file_record['iv']
         )
         
+        logger.info(f"Download successful: {file_record['filename']}, size={len(decrypted_content)} bytes")
         # Return file
         return Response(
             content=decrypted_content,
@@ -503,6 +514,8 @@ async def download_file(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Download failed: file_id={file_id}, user_id={user_id}, error={str(e)}")
+        logger.error(f"Exception traceback:", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 

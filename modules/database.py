@@ -474,11 +474,15 @@ class Database:
             cursor = conn.cursor()
             placeholder = self._get_placeholder()
             cursor.execute(
-                f'''SELECT fs.*, f.filename, f.encrypted_data, f.iv, u.username as owner_username
+                f'''SELECT fs.file_id as id, fs.owner_id, fs.recipient_id, 
+                           fs.encrypted_aes_key, fs.block_index, fs.shared_at,
+                           f.filename, f.encrypted_data, f.iv, f.uploaded_at,
+                           u.username as owner_username
                    FROM file_shares fs
                    JOIN files f ON fs.file_id = f.id
                    JOIN users u ON fs.owner_id = u.id
-                   WHERE fs.recipient_id = {placeholder}''',
+                   WHERE fs.recipient_id = {placeholder}
+                   ORDER BY fs.shared_at DESC''',
                 (recipient_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
