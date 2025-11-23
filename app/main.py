@@ -196,8 +196,8 @@ async def startup_event():
         logger.error(traceback.format_exc())
         raise  # Re-raise to prevent app from starting with broken state
 
-@app.get("/ping")
-def ping():
+@app.api_route("/ping", methods=["GET", "HEAD"])
+async def ping():
     """Simple ping endpoint for health checks"""
     return {"status": "ok"}
 
