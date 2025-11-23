@@ -109,55 +109,85 @@ db = None
 async def startup_event():
     """Initialize services on startup"""
     global blockchain, db
+    import asyncio
+    
+    worker_id = os.getpid()
+    logger.info(f"🚀 Worker {worker_id} starting up...")
+    
     try:
         # Initialize database first
         logger.info("Initializing database connection")
         db = Database('securecloudx.db')
-        logger.info(f" Database initialized - Type: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
+        logger.info(f"✅ Database initialized - Type: {'PostgreSQL' if db.is_postgres else 'SQLite'}")
+        
+        # Check what's in the database BEFORE loading blockchain
+        try:
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM blockchain_blocks")
+                db_block_count = cursor.fetchone()[0]
+                logger.info(f"📊 Database currently contains {db_block_count} blockchain blocks")
+        except Exception as e:
+            logger.warning(f"Could not query blockchain blocks: {e}")
+            db_block_count = 0
         
         # Initialize blockchain with database persistence
         chain_path = '/tmp/blockchain/chain.json' if os.getenv('RENDER') else 'blockchain/chain.json'
         logger.info(f"Initializing blockchain with database persistence (fallback: {chain_path})")
+        
+        # Acquire lock for blockchain initialization (prevents race conditions)
+        lock_acquired = db.acquire_blockchain_lock(timeout=10)
+        
         try:
-            blockchain = Blockchain(chain_path, db=db)
-            
-            # Check if blockchain is valid after loading
-            if len(blockchain.chain) > 0 and not blockchain.validate_chain():
-                logger.warning("  Loaded blockchain failed validation - likely from previous deployment")
-                logger.warning(" Clearing corrupted blockchain blocks and reinitializing...")
-                try:
-                    db.clear_blockchain_blocks()
-                    # Remove local JSON fallback if it exists
-                    if os.path.exists(chain_path):
-                        os.remove(chain_path)
-                        logger.info(f"Removed corrupted blockchain file: {chain_path}")
-                    # Create fresh blockchain
-                    blockchain = Blockchain(chain_path, db=db)
-                    logger.info(f"Blockchain reset complete - {len(blockchain.chain)} blocks (genesis)")
-                except Exception as inner_e:
-                    logger.error(f"Failed to reset blockchain: {inner_e}")
-                    raise
+            if lock_acquired:
+                logger.info(f"🔒 Worker {worker_id} acquired blockchain initialization lock")
             else:
-                logger.info(f"Blockchain initialized with {len(blockchain.chain)} blocks, valid: {blockchain.validate_chain()}")
+                logger.info(f"⏳ Worker {worker_id} waiting for another worker to initialize blockchain...")
+                await asyncio.sleep(3)  # Give other worker time to initialize
+            
+            blockchain = Blockchain(chain_path, db=db)
+            logger.info(f"✅ Blockchain loaded: {len(blockchain.chain)} blocks in memory")
+            
+            # Validate the blockchain
+            if len(blockchain.chain) > 0:
+                is_valid = blockchain.validate_chain()
+                logger.info(f"🔍 Blockchain validation: {'PASSED ✓' if is_valid else 'FAILED ✗'}")
                 
-        except Exception as e:
-            logger.error(f"Blockchain initialization error: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            # Attempt recovery by clearing everything and starting fresh
-            try:
-                logger.info("Attempting blockchain recovery...")
-                db.clear_blockchain_blocks()
-                blockchain = Blockchain(chain_path, db=db)
-                logger.info(f"Blockchain recovered with fresh genesis block")
-            except Exception as inner:
-                logger.error(f" Blockchain recovery failed: {inner}")
-                # Don't raise - allow app to start without blockchain
-                logger.warning(" Starting app without blockchain functionality")
-                blockchain = None
+                if not is_valid:
+                    logger.error(f"⚠️ Worker {worker_id} found invalid blockchain!")
+                    logger.error(f"Chain length in memory: {len(blockchain.chain)}")
+                    logger.error(f"Blocks in database: {db_block_count}")
+                    
+                    # Log details about the broken chain
+                    for i, block in enumerate(blockchain.chain[:5]):  # First 5 blocks
+                        logger.error(f"  Block {i}: index={block.index}, hash={block.hash[:16]}..., prev={block.previous_hash[:16]}...")
+                    
+                    # ONLY clear if on Render AND we have lock (avoid multiple workers clearing)
+                    if os.getenv('RENDER') and lock_acquired:
+                        logger.warning("🔧 Clearing corrupted blockchain and recreating (single worker with lock)")
+                        db.clear_blockchain_blocks()
+                        if os.path.exists(chain_path):
+                            os.remove(chain_path)
+                        blockchain = Blockchain(chain_path, db=db)
+                        logger.info(f"✅ Blockchain reset complete - {len(blockchain.chain)} block(s)")
+                    elif not os.getenv('RENDER'):
+                        # Local dev - safe to reset
+                        logger.warning("🔧 Local dev - clearing and recreating blockchain")
+                        db.clear_blockchain_blocks()
+                        blockchain = Blockchain(chain_path, db=db)
+                    else:
+                        logger.error("❌ Blockchain invalid but no lock - using as-is to avoid conflicts")
+                else:
+                    logger.info(f"🎉 Blockchain validated successfully")
+        finally:
+            if lock_acquired:
+                db.release_blockchain_lock()
+                logger.info(f"🔓 Worker {worker_id} released blockchain lock")
+        
+        logger.info(f"📦 Final state: {len(blockchain.chain)} blocks in blockchain")
         
         # Clean up expired sessions on startup
-        logger.info("Cleaning up expired sessions")
+        logger.info("🧹 Cleaning up expired sessions")
         db.cleanup_expired_sessions()
         
     except Exception as e:

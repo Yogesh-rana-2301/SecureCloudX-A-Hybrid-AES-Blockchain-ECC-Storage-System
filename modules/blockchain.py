@@ -292,9 +292,12 @@ class Blockchain:
                 block.hash = block_data['block_hash']
                 self.chain.append(block)
             
-            # NOTE: We load the chain but don't fail on validation here.
-            # The app startup logic will check validity and reset if needed.
-            # This prevents worker crashes during deployment.
+            # Validate the loaded chain
+            if not self.validate_chain():
+                print(f"WARNING: Loaded blockchain from database failed validation!")
+                print(f"Chain has {len(self.chain)} blocks. This will be handled by startup logic.")
+                # Don't clear here - let the startup logic with proper locking handle it
+                # This prevents race conditions where multiple workers try to clear simultaneously
             
             return True
         except Exception as e:

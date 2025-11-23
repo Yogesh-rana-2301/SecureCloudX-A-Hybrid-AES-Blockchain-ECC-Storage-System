@@ -660,4 +660,69 @@ class Database:
             cursor.execute(
                 'DELETE FROM user_sessions WHERE expires_at < CURRENT_TIMESTAMP'
             )
+    
+    def acquire_blockchain_lock(self, timeout: int = 10) -> bool:
+        """
+        Acquire a PostgreSQL advisory lock for blockchain initialization.
+        This prevents multiple workers from racing during blockchain setup.
+        
+        Args:
+            timeout: Maximum seconds to wait for lock
+            
+        Returns:
+            bool: True if lock acquired, False otherwise
+        """
+        if not self.is_postgres:
+            # SQLite doesn't need advisory locks (single process)
+            return True
+        
+        try:
+            import psycopg2
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Use a fixed lock ID for blockchain initialization
+            lock_id = 123456789
+            
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                # Try to acquire lock with timeout
+                cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_id,))
+                result = cursor.fetchone()
+                
+                if self.is_postgres:
+                    acquired = result[0] if result else False
+                else:
+                    acquired = result[0] == 1 if result else False
+                
+                logger.info(f"Blockchain lock acquisition: {acquired}")
+                return acquired
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error acquiring blockchain lock: {e}")
+            return False
+    
+    def release_blockchain_lock(self):
+        """
+        Release the PostgreSQL advisory lock for blockchain initialization.
+        """
+        if not self.is_postgres:
+            return
+        
+        try:
+            import psycopg2
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            lock_id = 123456789
+            
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
+                logger.info("Blockchain lock released")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error releasing blockchain lock: {e}")
 
