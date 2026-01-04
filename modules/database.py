@@ -69,6 +69,13 @@ class Database:
             else:
                 cursor.execute(sql)
         except Exception as e:
+            # Rollback the failed transaction to continue with other commands
+            if self.is_postgres:
+                try:
+                    cursor.connection.rollback()
+                except:
+                    pass
+            
             # If Postgres unique violation occurred due to race during
             # concurrent CREATE statements, log and ignore; otherwise re-raise.
             try:
@@ -119,12 +126,16 @@ class Database:
         Compatible with both PostgreSQL and SQLite.
         Auto-migrates old schemas by adding missing columns.
         """
-        with self.get_connection() as conn:
+        # Use autocommit mode for PostgreSQL to avoid transaction issues
+        if self.is_postgres:
+            import psycopg2
+            conn = psycopg2.connect(self.database_url, sslmode='require')
+            conn.autocommit = True
             cursor = conn.cursor()
-
-            if self.is_postgres:
-                # PostgreSQL syntax - use _safe_execute to avoid race conditions
-                self._safe_execute(cursor, '''
+            
+            try:
+                # PostgreSQL syntax - CREATE TABLE IF NOT EXISTS is safe with autocommit
+                cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         username TEXT UNIQUE NOT NULL,
@@ -135,23 +146,7 @@ class Database:
                     )
                 ''')
                 
-                # Auto-migration: Add password_hash if it doesn't exist
-                try:
-                    cursor.execute("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name='users' AND column_name='password_hash'
-                    """)
-                    if not cursor.fetchone():
-                        print(" Auto-migration: Adding password_hash column to users table...")
-                        cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT 'MIGRATION_REQUIRED'")
-                        cursor.execute("ALTER TABLE users ALTER COLUMN password_hash SET NOT NULL")
-                        print(" Migration complete: password_hash column added")
-                except Exception as e:
-                    # Column might already exist or other schema issue
-                    pass
-
-                self._safe_execute(cursor, '''
+                cursor.execute('''
                     CREATE TABLE IF NOT EXISTS files (
                         id SERIAL PRIMARY KEY,
                         owner_id INTEGER NOT NULL,
@@ -165,7 +160,7 @@ class Database:
                     )
                 ''')
 
-                self._safe_execute(cursor, '''
+                cursor.execute('''
                     CREATE TABLE IF NOT EXISTS file_shares (
                         id SERIAL PRIMARY KEY,
                         file_id INTEGER NOT NULL,
@@ -180,7 +175,7 @@ class Database:
                     )
                 ''')
 
-                self._safe_execute(cursor, '''
+                cursor.execute('''
                     CREATE TABLE IF NOT EXISTS blockchain_blocks (
                         id SERIAL PRIMARY KEY,
                         block_index INTEGER NOT NULL UNIQUE,
@@ -193,7 +188,7 @@ class Database:
                 ''')
 
                 # Session storage table for authentication
-                self._safe_execute(cursor, '''
+                cursor.execute('''
                     CREATE TABLE IF NOT EXISTS user_sessions (
                         id SERIAL PRIMARY KEY,
                         token TEXT NOT NULL UNIQUE,
@@ -203,6 +198,13 @@ class Database:
                         FOREIGN KEY (user_id) REFERENCES users (id)
                     )
                 ''')
+                
+                conn.close()
+                
+            except Exception as e:
+                conn.close()
+                raise
+            
             else:
                 # SQLite syntax
                 cursor.execute('''
