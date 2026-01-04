@@ -199,14 +199,19 @@ class Database:
                     )
                 ''')
                 
-                conn.close()
-                
             except Exception as e:
+                cursor.close()
                 conn.close()
                 raise
-            
-            else:
-                # SQLite syntax
+            finally:
+                cursor.close()
+                conn.close()
+        
+        else:
+            # SQLite syntax
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
