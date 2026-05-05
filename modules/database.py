@@ -76,14 +76,14 @@ class Database:
                 except:
                     pass
             
-            # If Postgres unique violation occurred due to race during
-            # concurrent CREATE statements, log and ignore; otherwise re-raise.
+            # If Postgres duplicate errors occurred due to race during
+            # concurrent CREATE statements, ignore; otherwise re-raise.
             try:
                 import psycopg2
                 # psycopg2 provides pgcode on DBAPIError instances
                 pgcode = getattr(e, 'pgcode', None)
-                if pgcode == '23505':
-                    # Unique violation - likely a concurrent creation race
+                if pgcode in {'23505', '42P07'}:
+                    # Unique violation or duplicate table - likely a concurrent creation race
                     return
             except Exception:
                 pass
@@ -135,7 +135,7 @@ class Database:
             
             try:
                 # PostgreSQL syntax - CREATE TABLE IF NOT EXISTS is safe with autocommit
-                cursor.execute('''
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         username TEXT UNIQUE NOT NULL,
@@ -146,7 +146,7 @@ class Database:
                     )
                 ''')
                 
-                cursor.execute('''
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS files (
                         id SERIAL PRIMARY KEY,
                         owner_id INTEGER NOT NULL,
@@ -160,7 +160,7 @@ class Database:
                     )
                 ''')
 
-                cursor.execute('''
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS file_shares (
                         id SERIAL PRIMARY KEY,
                         file_id INTEGER NOT NULL,
@@ -175,7 +175,7 @@ class Database:
                     )
                 ''')
 
-                cursor.execute('''
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS blockchain_blocks (
                         id SERIAL PRIMARY KEY,
                         block_index INTEGER NOT NULL UNIQUE,
@@ -188,7 +188,7 @@ class Database:
                 ''')
 
                 # Session storage table for authentication
-                cursor.execute('''
+                self._safe_execute(cursor, '''
                     CREATE TABLE IF NOT EXISTS user_sessions (
                         id SERIAL PRIMARY KEY,
                         token TEXT NOT NULL UNIQUE,
